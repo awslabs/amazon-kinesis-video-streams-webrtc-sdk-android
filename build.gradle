@@ -1,0 +1,103 @@
+buildscript {
+    repositories {
+        google()
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.5.1'
+    }
+}
+
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 29
+    defaultConfig {
+        targetSdkVersion 29
+        applicationId "com.amazonaws.kinesisvideo.webrtc.demoapp"
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        multiDexEnabled true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+
+    packagingOptions {
+        exclude 'com/fasterxml/jackson/databind/cfg/VERSION.txt'
+        exclude 'com/fasterxml/jackson/core/json/VERSION.txt'
+        exclude 'META-INF/DEPENDENCIES'
+    }
+    compileOptions {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+    }
+    buildToolsVersion = '28.0.3'
+
+    flavorDimensions "androidversion"
+    productFlavors {
+        minSdk24 {
+            dimension "androidversion"
+            minSdkVersion 24
+            applicationIdSuffix ".minsdk24"
+            versionNameSuffix "-minsdk24"
+        }
+        minSdk28 {
+            dimension "androidversion"
+            minSdkVersion 28
+            applicationIdSuffix ".minsdk28"
+            versionNameSuffix "-minsdk28"
+        }
+    }
+}
+
+repositories {
+    google()
+    jcenter()
+    mavenCentral()
+}
+
+
+dependencies {
+    def aws_version = '2.14.+'
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
+
+    implementation 'org.awaitility:awaitility:3.0.0'
+    implementation 'com.google.guava:guava:27.0.1-android'
+    implementation 'org.apache.commons:commons-lang3:3.9'
+    implementation 'org.json:json:20190722'
+    implementation 'com.google.code.gson:gson:2.8.5'
+    implementation 'ch.qos.logback:logback-classic:1.1.11'
+    implementation 'commons-codec:commons-codec:1.9'
+
+    minSdk24Implementation ('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.12'){
+        exclude module : 'javax.inject'
+    }
+
+    minSdk28Implementation ('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.15'){
+        exclude module : 'javax.inject'
+    }
+
+    implementation 'org.osgi:org.osgi.framework:1.9.0'
+    implementation 'org.webrtc:google-webrtc:1.0.28513'
+
+    implementation 'androidx.appcompat:appcompat:1.0.0'
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
+    implementation 'androidx.multidex:multidex:2.0.0'
+
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'junit:junit:4.12'
+    implementation 'com.google.android.material:material:1.0.0'
+}
