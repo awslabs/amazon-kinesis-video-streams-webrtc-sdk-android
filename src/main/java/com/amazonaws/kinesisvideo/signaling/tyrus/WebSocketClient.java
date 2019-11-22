@@ -1,22 +1,26 @@
 package com.amazonaws.kinesisvideo.signaling.tyrus;
 
 import android.util.Log;
-import com.amazonaws.kinesisvideo.signaling.SignalingListener;
-import com.amazonaws.kinesisvideo.signaling.model.Event;
 
+import com.amazonaws.kinesisvideo.signaling.SignalingListener;
 import com.google.gson.Gson;
 
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
 
-import javax.websocket.*;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import javax.websocket.ClientEndpointConfig;
+import javax.websocket.CloseReason;
+import javax.websocket.DeploymentException;
+import javax.websocket.Endpoint;
+import javax.websocket.EndpointConfig;
+import javax.websocket.Session;
 
 import static org.awaitility.Awaitility.await;
 
@@ -84,11 +88,11 @@ class WebSocketClient {
                 try {
                     session = clientManager.connectToServer(endpoint, cec, new URI(uri));
                 } catch (final DeploymentException e) {
-                    Log.e(TAG, "Exception " + e.getMessage());
+                    signalingListener.onException(e);
                 } catch (final IOException e) {
-                    Log.e(TAG, "Exception " + e.getMessage());
+                    signalingListener.onException(e);
                 } catch (final URISyntaxException e) {
-                    Log.e(TAG, "Exception " + e.getMessage());
+                    signalingListener.onException(e);
                 }
             }
         });

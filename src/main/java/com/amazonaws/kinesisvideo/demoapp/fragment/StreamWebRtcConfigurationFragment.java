@@ -1,18 +1,11 @@
 package com.amazonaws.kinesisvideo.demoapp.fragment;
 
 import android.Manifest;
-import android.content.Intent;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import androidx.core.app.ActivityCompat;
-import androidx.fragment.app.Fragment;
-import androidx.core.content.ContextCompat;
 import android.util.Log;
 import android.util.SparseBooleanArray;
 import android.view.LayoutInflater;
@@ -23,6 +16,13 @@ import android.widget.Button;
 import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
 
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
@@ -56,7 +56,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_REGION = "region";
     public static final String KEY_CHANNEL_ARN = "channelArn";
     public static final String KEY_WSS_ENDPOINT = "wssEndpoint";
-    public static final String KEY_HTTP_ENDPOINT = "httpEndpoint";
     public static final String KEY_IS_MASTER = "isMaster";
     public static final String KEY_ICE_SERVER_USER_NAME = "iceServerUserName";
     public static final String KEY_ICE_SERVER_PASSWORD = "iceServerPassword";
@@ -243,8 +242,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         for (ResourceEndpointListItem endpoint : mEndpointList) {
             if (endpoint.getProtocol().equals("WSS")) {
                 extras.putString(KEY_WSS_ENDPOINT, endpoint.getResourceEndpoint());
-            } else if (endpoint.getProtocol().equals("HTTPS")) {
-                extras.putString(KEY_HTTP_ENDPOINT, endpoint.getResourceEndpoint());
             }
         }
 
@@ -262,8 +259,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         awsKinesisVideoClient.setRegion(Region.getRegion(region));
         awsKinesisVideoClient.setSignerRegionOverride(region);
         awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
-        // TODO: Endpoint setting should be removed to use public endpoint
-        awsKinesisVideoClient.setEndpoint("https://beta.kinesisvideo.us-west-2.amazonaws.com/");
         return awsKinesisVideoClient;
     }
 

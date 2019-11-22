@@ -75,7 +75,6 @@ import java.util.concurrent.Executors;
 
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CLIENT_ID;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_HTTP_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_PASSWORD;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_TTL;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_URI;
@@ -98,7 +97,7 @@ public class WebRtcActivity extends AppCompatActivity {
     private static final boolean ENABLE_INTEL_VP8_ENCODER = true;
     private static final boolean ENABLE_H264_HIGH_PROFILE = true;
 
-    private static SignalingServiceWebSocketClient client;
+    private static volatile SignalingServiceWebSocketClient client;
     private PeerConnectionFactory peerConnectionFactory;
 
     private VideoSource videoSource;
@@ -113,10 +112,12 @@ public class WebRtcActivity extends AppCompatActivity {
     private PeerConnection localPeer;
     private MediaConstraints sdpMediaConstraints;
 
-    private EglBase rootEglBase;
+    private EglBase rootEglBase = null;
     private VideoCapturer videoCapturer;
 
     private final List<IceServer> peerIceServers = new ArrayList<>();
+
+    private boolean gotException = false;
 
     private String senderClientId;
     private String recipientClientId;
@@ -131,7 +132,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private String mChannelArn;
     private String mClientId;
-    private String mHttpEndpoint;
+
     private String mWssEndpoint;
     private String mRegion;
 
@@ -210,15 +211,25 @@ public class WebRtcActivity extends AppCompatActivity {
                 Log.e(TAG, "Received error message" + errorMessage);
 
             }
+
+            @Override
+            public void onException(Exception e) {
+                Log.e(TAG, "Signaling client returned exception " + e.getMessage());
+                gotException = true;
+            }
         };
 
 
         if (wsHost != null) {
-            client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
+            try {
+                client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
 
-            Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
+                Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
+            } catch (Exception e) {
+                gotException = true;
+            }
 
-            if (client.isOpen()) {
+            if (isValidClient()) {
 
                 Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
 
@@ -232,15 +243,23 @@ public class WebRtcActivity extends AppCompatActivity {
                 }
             } else {
                 Log.e(TAG, "Error in connecting to signaling service");
+                gotException = true;
             }
         }
+    }
+
+    private boolean isValidClient() {
+        return client != null && client.isOpen();
     }
 
     @Override
     protected void onDestroy() {
         Thread.setDefaultUncaughtExceptionHandler(null);
 
-        rootEglBase.release();
+        if (rootEglBase != null) {
+            rootEglBase.release();
+            rootEglBase = null;
+        }
 
         if (remoteView != null) {
             remoteView.release();
@@ -288,9 +307,16 @@ public class WebRtcActivity extends AppCompatActivity {
         // Start websocket after adding local audio/video tracks
         initWsConnection();
 
-        if (client.isOpen()) {
+        if (!gotException && isValidClient()) {
             Toast.makeText(this, "Signaling Connected", Toast.LENGTH_LONG).show();
+        } else {
+            notifySignalingConnectionFailed();
         }
+    }
+
+    private void notifySignalingConnectionFailed() {
+        finish();
+        Toast.makeText(this, "Connection error to signaling", Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -302,7 +328,7 @@ public class WebRtcActivity extends AppCompatActivity {
         Intent intent = getIntent();
         mChannelArn = intent.getStringExtra(KEY_CHANNEL_ARN);
         mWssEndpoint = intent.getStringExtra(KEY_WSS_ENDPOINT);
-        mHttpEndpoint = intent.getStringExtra(KEY_HTTP_ENDPOINT);
+
         mClientId = intent.getStringExtra(KEY_CLIENT_ID);
         if (mClientId == null || mClientId.isEmpty()) {
             mClientId = UUID.randomUUID().toString();
@@ -321,20 +347,20 @@ public class WebRtcActivity extends AppCompatActivity {
 
         PeerConnection.IceServer stun = PeerConnection
                 .IceServer
-                .builder("stun:stun.beta.kinesisvideo.us-west-2.amazonaws.com:443")
+                .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
                 .createIceServer();
 
         peerIceServers.add(stun);
 
         if (mUrisList != null) {
             for (int i = 0; i < mUrisList.size(); i++) {
-                String turnServerList = mUrisList.get(i).toString();
-                if( turnServerList != null) {
-                    IceServer iceServer = IceServer.builder(turnServerList.replace("[", "").replace("]", ""))
+                String turnServer = mUrisList.get(i).toString();
+                if( turnServer != null) {
+                    IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
                             .setUsername(mUserNames.get(i))
                             .setPassword(mPasswords.get(i))
                             .createIceServer();
-                    Log.d(TAG, "TURN = " + iceServer.toString());
+                    Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
                     peerIceServers.add(iceServer);
                 }
             }
@@ -643,12 +669,10 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
 
-                if (client.isOpen()) {
-
+                if (isValidClient()) {
                     client.sendSdpOffer(sdpOfferMessage);
-
                 } else {
-                    Log.e(TAG, "Signaling client is closed");
+                    notifySignalingConnectionFailed();
                 }
             }
         }, sdpMediaConstraints);

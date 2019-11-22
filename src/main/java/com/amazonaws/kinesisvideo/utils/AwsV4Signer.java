@@ -122,7 +122,7 @@ public class AwsV4Signer {
         try {
             uriResult = new URI(wssUri.getScheme(),
                     wssUri.getRawAuthority(),
-                    wssUri.getRawPath(),
+                    canonicalUri,
                     signedCanonicalQueryString,
                     null);
         } catch (URISyntaxException e) {

@@ -9,7 +9,7 @@ import org.webrtc.RtpReceiver;
 
 public class KinesisVideoPeerConnection implements PeerConnection.Observer {
 
-    private final String TAG = "KVSPeerConnection";
+    private final static String TAG = "KVSPeerConnection";
 
     public KinesisVideoPeerConnection() {
 
