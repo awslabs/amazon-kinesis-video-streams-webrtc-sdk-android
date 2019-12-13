@@ -18,7 +18,7 @@ import org.json.JSONObject;
 import java.util.concurrent.CountDownLatch;
 
 public class KinesisVideoWebRtcDemoApp extends Application {
-    public static final String TAG = KinesisVideoWebRtcDemoApp.class.getSimpleName();
+    private static final String TAG = KinesisVideoWebRtcDemoApp.class.getSimpleName();
 
     public static AWSCredentialsProvider getCredentialsProvider() {
         final OutputChannel outputChannel = new AndroidLogOutputChannel();

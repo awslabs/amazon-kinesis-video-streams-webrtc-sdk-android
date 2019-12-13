@@ -1,14 +1,10 @@
 package com.amazonaws.kinesisvideo.demoapp;
 
-import org.junit.Test;
-
 import java.nio.ByteBuffer;
 
-import static org.junit.Assert.assertTrue;
+class ExampleUnitTest {
 
-public class ExampleUnitTest {
-
-    private boolean buteBuffersEqual(
+    private boolean byteBuffersEqual(
             final ByteBuffer a,
             final ByteBuffer b) {
 

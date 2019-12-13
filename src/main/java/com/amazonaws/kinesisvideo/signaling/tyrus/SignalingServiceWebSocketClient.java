@@ -9,6 +9,7 @@ import com.google.gson.Gson;
 import org.glassfish.tyrus.client.ClientManager;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Signaling service client based on websocket.
@@ -22,21 +23,16 @@ public class SignalingServiceWebSocketClient {
 
     private final ExecutorService executorService;
 
-    Gson gson = new Gson();
-
+    private final Gson gson = new Gson();
 
     public SignalingServiceWebSocketClient(final String uri, final SignalingListener signalingListener,
                                            final ExecutorService executorService) {
-
         Log.d(TAG, "Connecting to URI " + uri + " as master");
-
         websocketClient = new WebSocketClient(uri, new ClientManager(), signalingListener, executorService);
-
         this.executorService = executorService;
     }
 
     public boolean isOpen() {
-
         return websocketClient.isOpen();
     }
 
@@ -62,7 +58,6 @@ public class SignalingServiceWebSocketClient {
 
                     Log.d(TAG, "Answer sent " + new String(Base64.decode(answer.getMessagePayload().getBytes(),
                             Base64.NO_WRAP | Base64.NO_PADDING | Base64.URL_SAFE)));
-
 
                     send(answer);
                 }
@@ -91,18 +86,18 @@ public class SignalingServiceWebSocketClient {
                 websocketClient.disconnect();
             }
         });
+        try {
+            executorService.awaitTermination(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Error in disconnect");
+        }
     }
 
     private void send(final Message message) {
-
         String jsonMessage = gson.toJson(message);
-
         Log.d(TAG, "Sending JSON Message= " + jsonMessage);
-
         websocketClient.send(jsonMessage);
-
         Log.d(TAG, "Sent JSON Message= " + jsonMessage);
     }
-
 
 }

@@ -1,7 +1,6 @@
 package com.amazonaws.kinesisvideo.demoapp.fragment;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
@@ -16,6 +15,7 @@ import android.widget.Button;
 import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.Spinner;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -45,13 +45,15 @@ import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequ
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
 import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class StreamWebRtcConfigurationFragment extends Fragment {
     private static final String TAG = StreamWebRtcConfigurationFragment.class.getSimpleName();
 
-    public static final String KEY_CHANNEL_NAME = "channelName";
+    private static final String KEY_CHANNEL_NAME = "channelName";
     public static final String KEY_CLIENT_ID = "clientId";
     public static final String KEY_REGION = "region";
     public static final String KEY_CHANNEL_ARN = "channelArn";
@@ -61,8 +63,9 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_ICE_SERVER_PASSWORD = "iceServerPassword";
     public static final String KEY_ICE_SERVER_TTL = "iceServerTTL";
     public static final String KEY_ICE_SERVER_URI = "iceServerUri";
+    public static final String KEY_CAMERA_FRONT_FACING = "cameraFrontFacing";
 
-    public static final String KEY_SEND_VIDEO = "sendVideo";
+    private static final String KEY_SEND_VIDEO = "sendVideo";
     public static final String KEY_SEND_AUDIO = "sendAudio";
 
     private static final String[] WEBRTC_OPTIONS = {
@@ -76,11 +79,10 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     };
 
 
-    private Button mStartMasterButton;
-    private Button mStartViewerButton;
     private EditText mChannelName;
     private EditText mClientId;
     private EditText mRegion;
+    private Spinner mCameras;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
     private String mChannelArn = null;
@@ -98,28 +100,28 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public View onCreateView(final LayoutInflater inflater,
                              final ViewGroup container,
                              final Bundle savedInstanceState) {
-        if (ContextCompat.checkSelfPermission(this.getActivity(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
-            || ContextCompat.checkSelfPermission(this.getActivity(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this.getActivity(), new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 9393);
+        if (getActivity() != null) {
+            if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+                    || ContextCompat.checkSelfPermission(this.getActivity(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this.getActivity(), new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 9393);
+            }
+
+            getActivity().setTitle(getActivity().getString(R.string.title_fragment_channel));
         }
 
-        getActivity().setTitle(getActivity().getString(R.string.title_fragment_channel));
-
-        final View view = inflater.inflate(R.layout.fragment_stream_webrtc_configuration, container, false);
-
-        return view;
+        return inflater.inflate(R.layout.fragment_stream_webrtc_configuration, container, false);
     }
 
     @Override
     public void onViewCreated(final View view, Bundle savedInstanceState) {
-        mStartMasterButton = (Button) view.findViewById(R.id.start_master);
+        Button mStartMasterButton = view.findViewById(R.id.start_master);
         mStartMasterButton.setOnClickListener(startMasterActivityWhenClicked());
-        mStartViewerButton = (Button) view.findViewById(R.id.start_viewer);
+        Button mStartViewerButton = view.findViewById(R.id.start_viewer);
         mStartViewerButton.setOnClickListener(startViewerActivityWhenClicked());
 
-        mChannelName = (EditText) view.findViewById(R.id.channel_name);
-        mClientId = (EditText) view.findViewById(R.id.client_id);
-        mRegion = (EditText) view.findViewById(R.id.region);
+        mChannelName = view.findViewById(R.id.channel_name);
+        mClientId = view.findViewById(R.id.client_id);
+        mRegion = view.findViewById(R.id.region);
         setRegionFromCognito();
 
         mOptions = view.findViewById(R.id.webrtc_options);
@@ -130,7 +132,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                 if(convertView == null) {
                     View v = getLayoutInflater().inflate(android.R.layout.simple_list_item_multiple_choice, null);
 
-                    final CheckedTextView ctv = (CheckedTextView)v.findViewById(android.R.id.text1);
+                    final CheckedTextView ctv = v.findViewById(android.R.id.text1);
                     ctv.setText(WEBRTC_OPTIONS[position]);
 
                     // Send video is enabled by default and cannot uncheck
@@ -152,6 +154,16 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mOptions.setItemsCanFocus(false);
         mOptions.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
         mOptions.setItemChecked(0, true);
+
+        mCameras = view.findViewById(R.id.camera_spinner);
+
+        List<String> cameraList = new ArrayList<>(Arrays.asList("Front Camera", "Back Camera"));
+
+        if (getContext() != null) {
+            mCameras.setAdapter(new ArrayAdapter<>(getContext(),
+                    android.R.layout.simple_spinner_dropdown_item,
+                    cameraList));
+        }
     }
 
     private void setRegionFromCognito() {
@@ -250,6 +262,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             extras.putBoolean(KEY_OF_OPTIONS[i], checked.get(i));
         }
 
+        extras.putBoolean(KEY_CAMERA_FRONT_FACING, mCameras.getSelectedItem().equals("Front Camera"));
+
         return extras;
     }
 
@@ -276,7 +290,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mEndpointList.clear();
         mIceServerList.clear();
         mChannelArn = null;
-        UpdateSignalingChannelInfoTask task = new UpdateSignalingChannelInfoTask(getActivity());
+        UpdateSignalingChannelInfoTask task = new UpdateSignalingChannelInfoTask(this);
         try {
             task.execute(region, channelName, role).get();
         } catch (Exception e) {
@@ -284,11 +298,11 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         }
     }
 
-    class UpdateSignalingChannelInfoTask extends AsyncTask<Object, String, String> {
-        Context mContext;
+    static class UpdateSignalingChannelInfoTask extends AsyncTask<Object, String, String> {
+        final WeakReference<StreamWebRtcConfigurationFragment> mFragment;
 
-        UpdateSignalingChannelInfoTask(final Context context) {
-            mContext = context;
+        UpdateSignalingChannelInfoTask(final StreamWebRtcConfigurationFragment fragment) {
+            mFragment = new WeakReference<>(fragment);
         }
 
         @Override
@@ -298,7 +312,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             final ChannelRole role = (ChannelRole) objects[2];
             AWSKinesisVideoClient awsKinesisVideoClient = null;
             try {
-                awsKinesisVideoClient = getAwsKinesisVideoClient(region);
+                awsKinesisVideoClient = mFragment.get().getAwsKinesisVideoClient(region);
             } catch (Exception e) {
                 return "Create client failed with " + e.getLocalizedMessage();
             }
@@ -309,7 +323,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                                 .withChannelName(channelName));
 
                 Log.i(TAG, "Channel ARN is " + describeSignalingChannelResult.getChannelInfo().getChannelARN());
-                mChannelArn = describeSignalingChannelResult.getChannelInfo().getChannelARN();
+                mFragment.get().mChannelArn = describeSignalingChannelResult.getChannelInfo().getChannelARN();
             } catch (final ResourceNotFoundException e) {
                 if (role.equals(ChannelRole.MASTER)) {
                     try {
@@ -317,7 +331,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                                 new CreateSignalingChannelRequest()
                                         .withChannelName(channelName));
 
-                        mChannelArn = createSignalingChannelResult.getChannelARN();
+                        mFragment.get().mChannelArn = createSignalingChannelResult.getChannelARN();
                     } catch (Exception ex) {
                         return "Create Signaling Channel failed with Exception " + ex.getLocalizedMessage();
                     }
@@ -331,30 +345,30 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             try {
                 GetSignalingChannelEndpointResult getSignalingChannelEndpointResult = awsKinesisVideoClient.getSignalingChannelEndpoint(
                         new GetSignalingChannelEndpointRequest()
-                                .withChannelARN(mChannelArn)
+                                .withChannelARN(mFragment.get().mChannelArn)
                                 .withSingleMasterChannelEndpointConfiguration(
                                         new SingleMasterChannelEndpointConfiguration()
                                                 .withProtocols("WSS", "HTTPS")
                                                 .withRole(role)));
 
                 Log.i(TAG, "Endpoints " + getSignalingChannelEndpointResult.toString());
-                mEndpointList.addAll(getSignalingChannelEndpointResult.getResourceEndpointList());
+                mFragment.get().mEndpointList.addAll(getSignalingChannelEndpointResult.getResourceEndpointList());
             } catch (Exception e) {
                 return "Get Signaling Endpoint failed with Exception " + e.getLocalizedMessage();
             }
 
             String dataEndpoint = null;
-            for (ResourceEndpointListItem endpoint : mEndpointList) {
+            for (ResourceEndpointListItem endpoint : mFragment.get().mEndpointList) {
                 if (endpoint.getProtocol().equals("HTTPS")) {
                     dataEndpoint = endpoint.getResourceEndpoint();
                 }
             }
 
             try {
-                final AWSKinesisVideoSignalingClient awsKinesisVideoSignalingClient = getAwsKinesisVideoSignalingClient(region, dataEndpoint);
+                final AWSKinesisVideoSignalingClient awsKinesisVideoSignalingClient = mFragment.get().getAwsKinesisVideoSignalingClient(region, dataEndpoint);
                 GetIceServerConfigResult getIceServerConfigResult = awsKinesisVideoSignalingClient.getIceServerConfig(
-                        new GetIceServerConfigRequest().withChannelARN(mChannelArn).withClientId(role.name()));
-                mIceServerList.addAll(getIceServerConfigResult.getIceServerList());
+                        new GetIceServerConfigRequest().withChannelARN(mFragment.get().mChannelArn).withClientId(role.name()));
+                mFragment.get().mIceServerList.addAll(getIceServerConfigResult.getIceServerList());
             } catch (Exception e) {
                 return "Get Ice Server Config failed with Exception " + e.getLocalizedMessage();
             }
@@ -365,7 +379,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         @Override
         protected void onPostExecute(String result) {
             if (result != null) {
-                AlertDialog.Builder diag = new AlertDialog.Builder(mContext);
+                AlertDialog.Builder diag = new AlertDialog.Builder(mFragment.get().getContext());
                 diag.setPositiveButton("OK", null).setMessage(result).create().show();
             }
         }

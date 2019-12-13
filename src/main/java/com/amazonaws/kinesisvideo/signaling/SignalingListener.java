@@ -13,7 +13,7 @@ public abstract class SignalingListener implements Signaling {
 
     private final Gson gson = new Gson();
 
-    private MessageHandler messageHandler = new MessageHandler.Whole<String>() {
+    private final MessageHandler messageHandler = new MessageHandler.Whole<String>() {
 
         @Override
         public void onMessage(String message) {

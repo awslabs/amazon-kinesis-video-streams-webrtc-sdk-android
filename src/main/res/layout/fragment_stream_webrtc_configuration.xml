@@ -1,24 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-            android:layout_width="match_parent"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fillViewport="true">
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+    <LinearLayout
+        android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:layout_margin="20dp"
                     android:orientation="vertical">
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Channel Name"/>
+                android:text="Channel Name"
+                tools:ignore="HardcodedText" />
             <EditText
                 android:id="@+id/channel_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
-                android:text="demo-channel"/>
+                android:text="demo-channel"
+                android:maxLength="256"
+                android:hint="Channel name with letter, number and ._-"
+                tools:ignore="Autofill,HardcodedText"
+                android:inputType="text" />
 
             <Space
                 android:layout_width="match_parent"
@@ -27,14 +33,18 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Client Id (optional)"/>
+                android:text="Client Id"
+                tools:ignore="HardcodedText" />
 
             <EditText
                 android:id="@+id/client_id"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
-                android:text=""/>
+                android:text=""
+                android:hint="Client Id (optional)"
+                android:inputType="text"
+                tools:ignore="Autofill,HardcodedText" />
             <Space
                 android:layout_width="match_parent"
                 android:layout_height="20dp"/>
@@ -43,14 +53,33 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Region"/>
+                android:text="Region"
+                tools:ignore="HardcodedText" />
 
             <EditText
                 android:id="@+id/region"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
-                android:text="us-west-2"/>
+                android:text="us-west-2"
+                android:hint="Region in all lower case."
+                tools:ignore="Autofill,HardcodedText"
+                android:inputType="text" />
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="20dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Camera"
+                tools:ignore="HardcodedText" />
+
+            <Spinner
+                android:layout_width="match_parent"
+                android:layout_height="20dp"
+                android:id="@+id/camera_spinner" />
+
             <Space
                 android:layout_width="match_parent"
                 android:layout_height="20dp"/>
@@ -72,7 +101,8 @@
                 android:padding="10dp"
                 android:background="@drawable/button_selector"
                 android:layout_gravity="center"
-                android:layout_margin="10dp"/>
+                android:layout_margin="10dp"
+                tools:ignore="HardcodedText" />
 
             <Space
                 android:layout_width="match_parent"
@@ -86,6 +116,7 @@
                 android:layout_gravity="center"
                 android:padding="10dp"
                 android:background="@drawable/button_selector"
-                android:layout_margin="10dp"/>
+                android:layout_margin="10dp"
+                tools:ignore="HardcodedText" />
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

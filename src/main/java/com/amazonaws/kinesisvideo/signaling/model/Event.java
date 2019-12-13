@@ -59,18 +59,22 @@ public class Event {
     public static IceCandidate parseIceCandidate(Event event) {
 
         byte[] decode = Base64.decode(event.getMessagePayload(), Base64.DEFAULT);
-
         String candidateString = new String(decode);
 
-        JsonObject jsonObject = new JsonParser().parse(candidateString).getAsJsonObject();
+        JsonObject jsonObject = JsonParser.parseString(candidateString).getAsJsonObject();
 
         String sdpMid = jsonObject.get("sdpMid").toString();
         if (sdpMid.length() > 2) {
             sdpMid = sdpMid.substring(1, sdpMid.length() - 1);
         }
 
-        // TODO: Handle parsing exception here
-        int sdpMLineIndex = Integer.parseInt(jsonObject.get("sdpMLineIndex").toString());
+        int sdpMLineIndex = 0;
+        try {
+            sdpMLineIndex = Integer.parseInt(jsonObject.get("sdpMLineIndex").toString());
+        } catch (NumberFormatException e) {
+            Log.e(TAG,  "Invalid sdpMLineIndex");
+            return null;
+        }
 
         String candidate = jsonObject.get("candidate").toString();
         if (candidate.length() > 2) {
@@ -83,29 +87,22 @@ public class Event {
     public static String parseSdpEvent(Event answerEvent) {
 
         String message = new String(Base64.decode(answerEvent.getMessagePayload().getBytes(), Base64.DEFAULT));
-
-        JsonObject jsonObject = new JsonParser().parse(message).getAsJsonObject();
-
+        JsonObject jsonObject = JsonParser.parseString(message).getAsJsonObject();
         String type = jsonObject.get("type").toString();
 
-        if (type != null && !type.equalsIgnoreCase("\"answer\"")) {
-
+        if (!type.equalsIgnoreCase("\"answer\"")) {
             Log.e(TAG, "Error in answer message");
-
         }
 
         String sdp = jsonObject.get("sdp").getAsString();
-
         Log.d(TAG, "SDP answer received from master:" + sdp);
         return sdp;
     }
 
     public static String parseOfferEvent(Event offerEvent) {
-
         String s = new String(Base64.decode(offerEvent.getMessagePayload(), Base64.DEFAULT));
 
-        JsonObject jsonObject = new JsonParser().parse(s).getAsJsonObject();
-
+        JsonObject jsonObject = JsonParser.parseString(s).getAsJsonObject();
         return jsonObject.get("sdp").getAsString();
     }
 

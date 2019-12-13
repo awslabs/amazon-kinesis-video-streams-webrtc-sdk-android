@@ -16,7 +16,7 @@ import com.amazonaws.mobile.client.SignInUIOptions;
 import com.amazonaws.mobile.client.UserStateDetails;
 
 public class StartUpActivity extends AppCompatActivity {
-    public static final String TAG = StartUpActivity.class.getSimpleName();
+    private static final String TAG = StartUpActivity.class.getSimpleName();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,7 +33,7 @@ public class StartUpActivity extends AppCompatActivity {
                 } else {
                     auth.showSignIn(thisActivity,
                             SignInUIOptions.builder()
-                                    .logo(R.drawable.kinesisvideo_logo)
+                                    .logo(R.mipmap.kinesisvideo_logo)
                                     .backgroundColor(Color.WHITE)
                                     .nextActivity(SimpleNavActivity.class)
                                     .build(),
