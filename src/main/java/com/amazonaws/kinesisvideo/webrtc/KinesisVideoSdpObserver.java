@@ -6,7 +6,7 @@ import org.webrtc.SessionDescription;
 
 public class KinesisVideoSdpObserver implements SdpObserver {
 
-    public static final String TAG = KinesisVideoSdpObserver.class.getSimpleName();
+    protected static final String TAG = KinesisVideoSdpObserver.class.getSimpleName();
 
     @Override
     public void onCreateSuccess(SessionDescription sessionDescription) {

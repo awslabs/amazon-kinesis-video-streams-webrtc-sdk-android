@@ -21,30 +21,32 @@ import com.amazonaws.mobile.client.SignInUIOptions;
 import com.amazonaws.mobile.client.UserStateDetails;
 import com.google.android.material.navigation.NavigationView;
 
+@SuppressWarnings("WeakerAccess")
 public class SimpleNavActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
-    public static final String TAG = SimpleNavActivity.class.getSimpleName();
+    private static final String TAG = SimpleNavActivity.class.getSimpleName();
 
     private Fragment streamFragment;
 
+    @SuppressWarnings("deprecation")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_simple_nav);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         drawer.setDrawerListener(toggle);
         toggle.syncState();
 
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
         if (savedInstanceState != null) {
-            streamFragment = (Fragment) getSupportFragmentManager().findFragmentByTag(StreamWebRtcConfigurationFragment.class.getName());
+            streamFragment = getSupportFragmentManager().findFragmentByTag(StreamWebRtcConfigurationFragment.class.getName());
         }
         // Video only
         this.startConfigFragment();
@@ -52,7 +54,7 @@ public class SimpleNavActivity extends AppCompatActivity
 
     @Override
     public void onBackPressed() {
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
         } else {
@@ -60,7 +62,6 @@ public class SimpleNavActivity extends AppCompatActivity
         }
     }
 
-    @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
         // Handle navigation view item clicks here.
@@ -70,7 +71,7 @@ public class SimpleNavActivity extends AppCompatActivity
             AWSMobileClient.getInstance().signOut();
             AWSMobileClient.getInstance().showSignIn(this,
                     SignInUIOptions.builder()
-                            .logo(R.drawable.kinesisvideo_logo)
+                            .logo(R.mipmap.kinesisvideo_logo)
                             .backgroundColor(Color.WHITE)
                             .nextActivity(SimpleNavActivity.class)
                             .build(),
@@ -87,7 +88,7 @@ public class SimpleNavActivity extends AppCompatActivity
                     });
         }
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
     }

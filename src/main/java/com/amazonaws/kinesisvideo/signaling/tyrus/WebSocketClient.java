@@ -3,7 +3,6 @@ package com.amazonaws.kinesisvideo.signaling.tyrus;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.signaling.SignalingListener;
-import com.google.gson.Gson;
 
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
@@ -34,19 +33,13 @@ class WebSocketClient {
 
     private Session session;
 
-    private final SignalingListener signalingListener;
-
-    private final Gson gson = new Gson();
-
-    private ExecutorService executorService;
+    private final ExecutorService executorService;
 
     WebSocketClient(final String uri, final ClientManager clientManager,
                     final SignalingListener signalingListener,
                     final ExecutorService executorService) {
 
-        this.signalingListener = signalingListener;
         this.executorService = executorService;
-
         final ClientEndpointConfig cec = ClientEndpointConfig.Builder.create().build();
 
         clientManager.getProperties().put(ClientProperties.LOG_HTTP_UPGRADE, true);
@@ -56,30 +49,23 @@ class WebSocketClient {
 
             @Override
             public void onOpen(final Session session, final EndpointConfig endpointConfig) {
-
                 Log.d(TAG, "Registering message handler");
-
                 session.addMessageHandler(signalingListener.getMessageHandler());
-
             }
 
             @Override
             public void onClose(final Session session, final CloseReason closeReason) {
-
                 super.onClose(session, closeReason);
-
                 Log.d(TAG, "Session " + session.getRequestURI() + " closed with reason " +
                         closeReason.getReasonPhrase());
             }
 
             @Override
             public void onError(final Session session, final Throwable thr) {
-
                 super.onError(session, thr);
-
                 Log.w(TAG, thr);
-
             }
+
         };
 
         executorService.submit(new Runnable() {
@@ -87,45 +73,33 @@ class WebSocketClient {
             public void run() {
                 try {
                     session = clientManager.connectToServer(endpoint, cec, new URI(uri));
-                } catch (final DeploymentException e) {
-                    signalingListener.onException(e);
-                } catch (final IOException e) {
-                    signalingListener.onException(e);
-                } catch (final URISyntaxException e) {
+                } catch (final DeploymentException | IOException | URISyntaxException e) {
                     signalingListener.onException(e);
                 }
             }
         });
 
-
         await().atMost(10, TimeUnit.SECONDS).until(new Callable<Boolean>() {
             @Override
-            public Boolean call() throws Exception {
+            public Boolean call() {
                 return WebSocketClient.this.isOpen();
             }
         });
     }
 
     boolean isOpen() {
-
         if (session != null) {
-
             Log.d(TAG, " isOpen " + session.isOpen());
-
             return session.isOpen();
 
         } else {
-
             return false;
         }
     }
 
     void send(final String message) {
-
         try {
-
             session.getBasicRemote().sendText(message);
-
         } catch (final IOException e) {
 
             Log.e(TAG, "Exception" + e.getMessage());
@@ -133,20 +107,16 @@ class WebSocketClient {
     }
 
     void disconnect() {
-
         if (session.isOpen()) {
-
             try {
-
                 session.close();
-
+                executorService.shutdownNow();
             } catch (final IOException e) {
-
                 Log.e(TAG, "Exception" + e.getMessage());
             }
         } else {
-
             Log.w(TAG, "Connection already closed for " + session.getRequestURI());
         }
     }
+
 }

@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -66,13 +67,14 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CAMERA_FRONT_FACING;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CLIENT_ID;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_PASSWORD;
@@ -110,7 +112,6 @@ public class WebRtcActivity extends AppCompatActivity {
     private SurfaceViewRenderer remoteView;
 
     private PeerConnection localPeer;
-    private MediaConstraints sdpMediaConstraints;
 
     private EglBase rootEglBase = null;
     private VideoCapturer videoCapturer;
@@ -119,7 +120,6 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean gotException = false;
 
-    private String senderClientId;
     private String recipientClientId;
 
     private int mNotificationId = 0;
@@ -136,10 +136,8 @@ public class WebRtcActivity extends AppCompatActivity {
     private String mWssEndpoint;
     private String mRegion;
 
-    private ArrayList<String> mUserNames;
-    private ArrayList<String> mPasswords;
-    private ArrayList<Integer> mTTLs;
-    private ArrayList<List<String>> mUrisList;
+    private boolean mCameraFacingFront = true;
+
     private AWSCredentials mCreds = null;
 
     private void initWsConnection() {
@@ -199,10 +197,14 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 final IceCandidate iceCandidate = Event.parseIceCandidate(message);
 
-                // Remote sent us ICE candidates, add to local peer connection
-                final boolean addIce = localPeer.addIceCandidate(iceCandidate);
+                if(iceCandidate != null) {
+                    // Remote sent us ICE candidates, add to local peer connection
+                    final boolean addIce = localPeer.addIceCandidate(iceCandidate);
 
-                Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+                    Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+                } else {
+                    Log.e(TAG, "Invalid Ice candidate");
+                }
             }
 
             @Override
@@ -335,11 +337,12 @@ public class WebRtcActivity extends AppCompatActivity {
         }
         master = intent.getBooleanExtra(KEY_IS_MASTER, true);
         isAudioSent = intent.getBooleanExtra(KEY_SEND_AUDIO, false);
-        mUserNames = intent.getStringArrayListExtra(KEY_ICE_SERVER_USER_NAME);
-        mPasswords = intent.getStringArrayListExtra(KEY_ICE_SERVER_PASSWORD);
-        mTTLs = intent.getIntegerArrayListExtra(KEY_ICE_SERVER_TTL);
-        mUrisList = (ArrayList<List<String>>) intent.getSerializableExtra(KEY_ICE_SERVER_URI);
+        ArrayList<String> mUserNames = intent.getStringArrayListExtra(KEY_ICE_SERVER_USER_NAME);
+        ArrayList<String> mPasswords = intent.getStringArrayListExtra(KEY_ICE_SERVER_PASSWORD);
+        ArrayList<Integer> mTTLs = intent.getIntegerArrayListExtra(KEY_ICE_SERVER_TTL);
+        ArrayList<List<String>> mUrisList = (ArrayList<List<String>>) intent.getSerializableExtra(KEY_ICE_SERVER_URI);
         mRegion = intent.getStringExtra(KEY_REGION);
+        mCameraFacingFront = intent.getBooleanExtra(KEY_CAMERA_FRONT_FACING, true);
 
         rootEglBase = EglBase.create();
 
@@ -435,7 +438,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
         for (String deviceName : deviceNames) {
 
-            if (enumerator.isFrontFacing(deviceName)) {
+            if (mCameraFacingFront ? enumerator.isFrontFacing(deviceName) : enumerator.isBackFacing(deviceName)) {
 
                 Logging.d(TAG, "Camera created");
                 VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
@@ -512,7 +515,9 @@ public class WebRtcActivity extends AppCompatActivity {
                                 }
 
                                 NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID)
-                                        .setSmallIcon(R.drawable.ic_launcher)
+                                        .setSmallIcon(R.mipmap.ic_launcher)
+                                        .setLargeIcon(BitmapFactory.decodeResource(getApplicationContext().getResources(),
+                                                R.mipmap.ic_launcher))
                                         .setContentTitle("Message from Peer!")
                                         .setContentText(new String(bytes, Charset.defaultCharset()))
                                         .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -568,11 +573,7 @@ public class WebRtcActivity extends AppCompatActivity {
                         + sdpMLineIndex
                         + "}";
 
-        if (master) {
-            senderClientId = "";
-        } else {
-            senderClientId = mClientId;
-        }
+        String senderClientId = (master) ? "" : mClientId;
 
         return new Message("ICE_CANDIDATE", recipientClientId, senderClientId,
                 new String(Base64.encode(messagePayload.getBytes(),
@@ -588,7 +589,7 @@ public class WebRtcActivity extends AppCompatActivity {
             Log.e(TAG, "Add video track failed");
         }
 
-        localPeer.addTrack(stream.videoTracks.get(0), Arrays.asList(new String[] {stream.getId()}));
+        localPeer.addTrack(stream.videoTracks.get(0), Collections.singletonList(stream.getId()));
 
         if(isAudioSent) {
             if (!stream.addTrack(localAudioTrack)) {
@@ -597,7 +598,7 @@ public class WebRtcActivity extends AppCompatActivity {
             }
 
             if (stream.audioTracks.size() > 0) {
-                localPeer.addTrack(stream.audioTracks.get(0), Arrays.asList(new String[] {stream.getId()}));
+                localPeer.addTrack(stream.audioTracks.get(0), Collections.singletonList(stream.getId()));
                 Log.d(TAG, "Sending audio track ");
             }
         }
@@ -648,7 +649,7 @@ public class WebRtcActivity extends AppCompatActivity {
     // when mobile sdk is viewer
     private void createSdpOffer() {
 
-        sdpMediaConstraints = new MediaConstraints();
+        MediaConstraints sdpMediaConstraints = new MediaConstraints();
 
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
@@ -752,7 +753,8 @@ public class WebRtcActivity extends AppCompatActivity {
         lp.width = (int) (displayMetrics.widthPixels * 0.25);
         localView.setLayoutParams(lp);
         localView.setOnTouchListener(new View.OnTouchListener() {
-            private int mMarginRight = displayMetrics.widthPixels, mMarginBottom = displayMetrics.heightPixels;
+            private final int mMarginRight = displayMetrics.widthPixels;
+            private final int mMarginBottom = displayMetrics.heightPixels;
             private int deltaOfDownXAndMargin, deltaOfDownYAndMargin;
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {

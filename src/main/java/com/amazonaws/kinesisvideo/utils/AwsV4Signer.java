@@ -1,10 +1,5 @@
 package com.amazonaws.kinesisvideo.utils;
 
-/*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * AMAZON.COM CONFIDENTIAL
- */
-
 import com.amazonaws.util.BinaryUtils;
 import com.amazonaws.util.DateUtils;
 import com.google.common.collect.ImmutableMap;
@@ -35,8 +30,7 @@ import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
-/* From tests */
-
+@SuppressWarnings({"SpellCheckingInspection", "SameParameterValue"})
 public class AwsV4Signer {
 
     private static final Logger logger = LoggerFactory.getLogger(AwsV4Signer.class);
@@ -56,6 +50,7 @@ public class AwsV4Signer {
     private static final String TIME_PATTERN = "yyyyMMdd'T'HHmmss'Z'";
 
     private static final String METHOD = "GET";
+    private static final String SIGNED_HEADERS = "host";
 
     // Guide - https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
     // Implementation based on https://docs.aws.amazon.com/general/latest/gr/sigv4-signed-request-examples.html#sig-v4-examples-get-query-string
@@ -66,17 +61,35 @@ public class AwsV4Signer {
         final String amzDate = getTimeStamp(dateMilli);
         final String datestamp = getDateStamp(dateMilli);
 
-        final String canonicalUri = isEmpty(uri.getPath()) ? "/" : uri.getPath();
-        final String canonicalHeaders = "host:" + uri.getHost() + NEW_LINE_DELIMITER;
-        final String signedHeaders = "host";
-        final String credentialScope = new StringJoiner("/").add(datestamp).add(region).add(SERVICE).add(AWS4_REQUEST_TYPE).toString();
+        final Map<String, String> queryParamsMap = buildQueryParamsMap(uri, accessKey, sessionToken, region, amzDate, datestamp);
+        final String canonicalQuerystring = getCanonicalizedQueryString(queryParamsMap);
+        final String canonicalRequest = getCanonicalRequest(uri, canonicalQuerystring);
+        final String stringToSign = signString(amzDate, createCredentialScope(region, datestamp), canonicalRequest);
+        final byte[] signatureKey = getSignatureKey(secretKey, datestamp, region, SERVICE);
+        final String signature = BinaryUtils.toHex(hmacSha256(stringToSign, signatureKey));
+        final String signedCanonicalQueryString = canonicalQuerystring + "&" + X_AMZ_SIGNATURE + "=" + signature;
 
+        URI uriResult = null;
+        try {
+            uriResult = new URI(wssUri.getScheme(),
+                    wssUri.getRawAuthority(),
+                    getCanonicalUri(uri),
+                    signedCanonicalQueryString,
+                    null);
+        } catch (URISyntaxException e) {
+            logger.error(e.getMessage());
+        }
+
+        return uriResult;
+    }
+
+    private static Map<String, String> buildQueryParamsMap(URI uri, String accessKey, String sessionToken, String region, String amzDate, String datestamp) {
         final ImmutableMap.Builder<String, String> queryParamsBuilder = ImmutableMap.<String, String>builder()
                 .put(X_AMZ_ALGORITHM, ALGORITHM_AWS4_HMAC_SHA_256)
-                .put(X_AMZ_CREDENTIAL, urlEncode(accessKey + "/" + credentialScope))
+                .put(X_AMZ_CREDENTIAL, urlEncode(accessKey + "/" + createCredentialScope(region, datestamp)))
                 .put(X_AMZ_DATE, amzDate)
                 .put(X_AMZ_EXPIRES, "299")
-                .put(X_AMZ_SIGNED_HEADERS, signedHeaders);
+                .put(X_AMZ_SIGNED_HEADERS, SIGNED_HEADERS);
 
         if (isNotEmpty(sessionToken)) {
             queryParamsBuilder.put(X_AMZ_SECURITY_TOKEN, urlEncode(sessionToken));
@@ -91,49 +104,42 @@ public class AwsV4Signer {
                 }
             }
         }
-        final Map<String, String> queryParams = queryParamsBuilder.build();
-        final List<String> queryKeys = new ArrayList<String>(queryParams.keySet());
-        Collections.sort(queryKeys);
-        final String canonicalQuerystring = getCanonicalizedQueryString(queryKeys, queryParams);
+        return queryParamsBuilder.build();
+    }
+
+    private static String createCredentialScope(String region, String datestamp) {
+        return new StringJoiner("/").add(datestamp).add(region).add(SERVICE).add(AWS4_REQUEST_TYPE).toString();
+    }
+
+    static String getCanonicalRequest(URI uri, String canonicalQuerystring) {
         final String payloadHash = sha256().hashString(EMPTY, UTF_8).toString();
+        final String canonicalUri = getCanonicalUri(uri);
+        final String canonicalHeaders = "host:" + uri.getHost() + NEW_LINE_DELIMITER;
         final String canonicalRequest = new StringJoiner(NEW_LINE_DELIMITER).add(METHOD)
                 .add(canonicalUri)
                 .add(canonicalQuerystring)
                 .add(canonicalHeaders)
-                .add(signedHeaders)
+                .add(SIGNED_HEADERS)
                 .add(payloadHash)
                 .toString();
 
-        logger.debug("Canonical request for [{}] is \n{}", uri.toString(), canonicalRequest);
+       return canonicalRequest;
+    }
 
+    private static String getCanonicalUri(URI uri) {
+        return isEmpty(uri.getPath()) ? "/" : uri.getPath();
+    }
+
+    static String signString(String amzDate, String credentialScope, String canonicalRequest) {
         final String stringToSign = new StringJoiner(NEW_LINE_DELIMITER).add(ALGORITHM_AWS4_HMAC_SHA_256)
                 .add(amzDate)
                 .add(credentialScope)
                 .add(sha256().hashString(canonicalRequest, UTF_8).toString())
                 .toString();
-        logger.debug("String to sign for [{}] is \n{}", uri, stringToSign);
-
-        final byte[] signatureKey = getSignatureKey(secretKey, datestamp, region, SERVICE);
-        final String signature = BinaryUtils.toHex(hmacSha256(stringToSign, signatureKey));
-        final String signedCanonicalQueryString = canonicalQuerystring + "&" + X_AMZ_SIGNATURE + "=" + signature;
-
-
-        URI uriResult= null;
-        try {
-            uriResult = new URI(wssUri.getScheme(),
-                    wssUri.getRawAuthority(),
-                    canonicalUri,
-                    signedCanonicalQueryString,
-                    null);
-        } catch (URISyntaxException e) {
-            logger.error(e.getMessage());
-        }
-
-        return uriResult;
+        return stringToSign;
     }
 
     private static String urlEncode(final String str) {
-
         try {
             return URLEncoder.encode(str, UTF_8.name());
         } catch (final UnsupportedEncodingException e) {
@@ -142,7 +148,7 @@ public class AwsV4Signer {
     }
 
     //  https://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-java
-    private static byte[] hmacSha256(final String data, final byte[] key) {
+    static byte[] hmacSha256(final String data, final byte[] key) {
         final String algorithm = "HmacSHA256";
         final Mac mac;
         try {
@@ -155,7 +161,8 @@ public class AwsV4Signer {
     }
 
     //   https://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-java
-    private static byte[] getSignatureKey(
+
+    static byte[] getSignatureKey(
             final String key,
             final String dateStamp,
             final String regionName,
@@ -164,8 +171,7 @@ public class AwsV4Signer {
         final byte[] kDate = hmacSha256(dateStamp, kSecret);
         final byte[] kRegion = hmacSha256(regionName, kDate);
         final byte[] kService = hmacSha256(serviceName, kRegion);
-        final byte[] kSigning = hmacSha256(AWS4_REQUEST_TYPE, kService);
-        return kSigning;
+        return hmacSha256(AWS4_REQUEST_TYPE, kService);
     }
 
     private static String getTimeStamp(long dateMilli) {
@@ -176,12 +182,15 @@ public class AwsV4Signer {
         return DateUtils.format(DATE_PATTERN, new Date(dateMilli));
     }
 
-    private static String getCanonicalizedQueryString(List<String> keys, Map<String, String> parameters) {
+    static String getCanonicalizedQueryString(Map<String, String> queryParamsMap) {
+        final List<String> queryKeys = new ArrayList<>(queryParamsMap.keySet());
+        Collections.sort(queryKeys);
+
         final StringBuilder builder = new StringBuilder();
 
-        for (int i = 0; keys != null && i < keys.size(); i++) {
-            builder.append(keys.get(i)).append("=").append(parameters.get(keys.get(i)));
-            if (keys.size() - 1> i) {
+        for (int i = 0; i < queryKeys.size(); i++) {
+            builder.append(queryKeys.get(i)).append("=").append(queryParamsMap.get(queryKeys.get(i)));
+            if (queryKeys.size() - 1 > i) {
                 builder.append("&");
             }
         }

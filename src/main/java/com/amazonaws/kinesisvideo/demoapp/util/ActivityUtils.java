@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
+@SuppressWarnings("WeakerAccess")
 public class ActivityUtils {
     private static final Bundle NO_EXTRAS = null;
 
