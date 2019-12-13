@@ -14,7 +14,7 @@ android:
   - $ANDROID_TARGET
   - sys-img-${ANDROID_ABI}-${ANDROID_TARGET}
 script:
-  - gradle wrapper
+  - gradle wrapper --gradle-version=5.4.1
   - gradle build 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
