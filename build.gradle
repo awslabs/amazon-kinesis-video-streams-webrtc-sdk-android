@@ -75,24 +75,24 @@ repositories {
 
 
 dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+
     def aws_version = '2.16.5'
     implementation ("com.amazonaws:aws-android-sdk-kinesisvideo:$aws_version@aar") { transitive = true }
     implementation ("com.amazonaws:aws-android-sdk-kinesisvideo-signaling:$aws_version@jar") { transitive = true }
     implementation ("com.amazonaws:aws-android-sdk-mobile-client:$aws_version@aar") { transitive = true }
-    implementation ("com.amazonaws:aws-android-sdk-auth-ui:$aws_version@aar") { transitive = true }
     implementation ("com.amazonaws:aws-android-sdk-auth-userpools:$aws_version@aar") { transitive = true }
-
 
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
 
-    implementation 'org.awaitility:awaitility:4.0.1'
+    implementation 'org.awaitility:awaitility:3.0.0'
     implementation 'com.google.guava:guava:28.1-android'
     implementation 'org.apache.commons:commons-lang3:3.9'
     implementation 'org.json:json:20190722'
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'org.slf4j:slf4j-api:1.7.29'
     implementation 'com.github.tony19:logback-android:2.0.0'
-    implementation 'commons-codec:commons-codec:1.12'
+    implementation 'commons-codec:commons-codec:1.9'
 
     minSdk24Implementation ('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.12'){
         exclude module : 'javax.inject'
