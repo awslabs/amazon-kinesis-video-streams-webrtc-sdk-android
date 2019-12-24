@@ -106,6 +106,9 @@ public class WebRtcActivity extends AppCompatActivity {
     private VideoTrack localVideoTrack;
 
     private AudioManager audioManager;
+    private int originalAudioMode;
+    private boolean originalSpeakerphoneOn;
+
     private AudioTrack localAudioTrack;
 
     private SurfaceViewRenderer localView;
@@ -156,6 +159,10 @@ public class WebRtcActivity extends AppCompatActivity {
         });
 
         signedUri = getSignedUri(masterEndpoint, viewerEndpoint);
+
+        if (master) {
+            createLocalPeerConnection();
+        }
 
         final String wsHost = signedUri.toString();
 
@@ -235,9 +242,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
 
-                if (master) {
-                    createLocalPeerConnection();
-                } else {
+                if (!master) {
                     Log.d(TAG, "Signaling service is connected: " +
                             "Sending offer as viewer to remote peer"); // Viewer
 
@@ -257,6 +262,9 @@ public class WebRtcActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         Thread.setDefaultUncaughtExceptionHandler(null);
+
+        audioManager.setMode(originalAudioMode);
+        audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
 
         if (rootEglBase != null) {
             rootEglBase.release();
@@ -406,6 +414,8 @@ public class WebRtcActivity extends AppCompatActivity {
         }
 
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        originalAudioMode = audioManager.getMode();
+        originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
 
         // Start capturing video
         videoCapturer.startCapture(VIDEO_SIZE_WIDTH, VIDEO_SIZE_HEIGHT, VIDEO_FPS);
