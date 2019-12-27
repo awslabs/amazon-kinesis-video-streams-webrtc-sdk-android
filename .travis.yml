@@ -15,11 +15,6 @@ android:
   - sys-img-${ANDROID_ABI}-${ANDROID_TARGET}
 script:
   - echo yes | sdkmanager "build-tools;28.0.3"
-  - ./gradlew build
-  - ./gradlew check
-  - ./gradlew testMinSdk24DebugUnitTestCoverage
-  - ./gradlew testMinSdk24ReleaseUnitTestCoverage
-  - ./gradlew testMinSdk28DebugUnitTestCoverage
-  - ./gradlew testMinSdk28ReleaseUnitTestCoverage
+  - ./gradlew build jacocoTestReport assembleAndroidTest
 after_success:
   - bash <(curl -s https://codecov.io/bash)
