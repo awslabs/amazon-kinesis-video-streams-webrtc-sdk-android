@@ -27,6 +27,9 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        debug {
+            testCoverageEnabled = true
+        }
     }
 
     lintOptions {
@@ -113,3 +116,5 @@ dependencies {
     androidTestImplementation 'junit:junit:4.12'
     implementation 'com.google.android.material:material:1.0.0'
 }
+
+apply from: 'jacoco.gradle'
