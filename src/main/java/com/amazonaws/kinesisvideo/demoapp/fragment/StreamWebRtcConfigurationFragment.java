@@ -183,7 +183,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private void startMasterActivity() {
-        updateSignalingChannelInfo(mRegion.getText().toString(),
+        updateSignalingChannelInfo(KinesisVideoWebRtcDemoApp.getRegion().toString(),
                 mChannelName.getText().toString(),
                 ChannelRole.MASTER);
         if (mChannelArn != null) {
@@ -204,7 +204,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private void startViewerActivity() {
-        updateSignalingChannelInfo(mRegion.getText().toString(),
+        updateSignalingChannelInfo(KinesisVideoWebRtcDemoApp.getRegion().toString(),
                 mChannelName.getText().toString(),
                 ChannelRole.VIEWER);
 

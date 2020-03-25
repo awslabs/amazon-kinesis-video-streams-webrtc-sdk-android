@@ -24,8 +24,9 @@
         android:theme="@style/AppTheme"
         android:fullBackupContent="@xml/backup_descriptor">
         <activity
-            android:name="com.amazonaws.kinesisvideo.demoapp.activity.StartUpActivity"
-            android:label="@string/title_activity_login">
+            android:name="com.amazonaws.kinesisvideo.demoapp.activity.SimpleNavActivity"
+            android:label="@string/title_activity_simple_nav"
+            android:theme="@style/AppTheme">
 
             <!-- Make it a default activity -->
             <intent-filter>
@@ -34,11 +35,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity
-            android:name="com.amazonaws.kinesisvideo.demoapp.activity.SimpleNavActivity"
-            android:label="@string/title_activity_simple_nav"
-            android:theme="@style/AppTheme">
-        </activity>
+<!--        <activity-->
+<!--            android:name="com.amazonaws.kinesisvideo.demoapp.activity.SimpleNavActivity"-->
+<!--            android:label="@string/title_activity_simple_nav"-->
+<!--            android:theme="@style/AppTheme">-->
+<!--        </activity>-->
         <activity android:name="com.amazonaws.kinesisvideo.demoapp.activity.WebRtcActivity"
             android:label="@string/title_activity_webrtc"
             android:theme="@style/AppTheme"
