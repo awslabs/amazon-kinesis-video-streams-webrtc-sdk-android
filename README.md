@@ -16,7 +16,7 @@
  Setup user pool for secure login using Cognito:
 
  * Go to https://console.aws.amazon.com/cognito/
- * Click `Manage your User Pools`
+ * Click `Manage User Pools`
  * Click `Create a user pool`
  * Fill-in `Pool name`
  * Click `Review defaults`
@@ -31,11 +31,11 @@
 ### 3. Create an identity pool
 
  * Go to https://console.aws.amazon.com/cognito/
- * Click `Manage Federated Identities`
+ * Click `Manage Identity Pools`
  * Click `Create new identity pool`
  * Fill-in `Identity pool name`
  * Under the heading `Authentication providers`, in the `Cognito` tab, fill-in the `User Pool Id` and  `App client id` from the user pools step.
- * Click `Create create`
+ * Click `Create Pool`
  * There will be details for 2 roles. Look at the one for `authenticated identities` and click `Edit` next to the policy document and your policy should look like this after editing:
 
 ```
