@@ -73,6 +73,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CAMERA_FRONT_FACING;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
@@ -133,6 +135,8 @@ public class WebRtcActivity extends AppCompatActivity {
     private EditText dataChannelText = null;
     private Button sendDataChannelButton = null;
 
+    private boolean peerConnectionFound = false;
+
     private String mChannelArn;
     private String mClientId;
 
@@ -142,6 +146,8 @@ public class WebRtcActivity extends AppCompatActivity {
     private boolean mCameraFacingFront = true;
 
     private AWSCredentials mCreds = null;
+
+    private Queue<IceCandidate> pendingIceCandidatesQueue = new LinkedList<>();
 
     private void initWsConnection() {
 
@@ -195,6 +201,10 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), sdpAnswer);
 
+                peerConnectionFound = true;
+
+                // Check if ICE candidates are available in the queue and add the candidate
+                handlePendingIceCandidates();
             }
 
             @Override
@@ -205,10 +215,18 @@ public class WebRtcActivity extends AppCompatActivity {
                 final IceCandidate iceCandidate = Event.parseIceCandidate(message);
 
                 if(iceCandidate != null) {
-                    // Remote sent us ICE candidates, add to local peer connection
-                    final boolean addIce = localPeer.addIceCandidate(iceCandidate);
+                    // if answer is not received, hold the received ICE candidates in a queue.
+                    if(!peerConnectionFound) {
+                        Log.d(TAG, "Answer not received yet. Ice candidate " + iceCandidate + " + added to pending queue");
+                        // Add ICE candidate to a queue
+                        pendingIceCandidatesQueue.add(iceCandidate);
+                    }
+                    else {
+                      // Remote sent us ICE candidates, add to local peer connection
+                      final boolean addIce = localPeer.addIceCandidate(iceCandidate);
 
-                    Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+                      Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+                    }
                 } else {
                     Log.e(TAG, "Invalid Ice candidate");
                 }
@@ -257,6 +275,16 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean isValidClient() {
         return client != null && client.isOpen();
+    }
+
+    private void handlePendingIceCandidates() {
+        // Check if ICE candidates are available in the queue and add the candidate
+        while(!pendingIceCandidatesQueue.isEmpty()) {
+            final IceCandidate iceCandidate = pendingIceCandidatesQueue.peek();
+            final boolean addIce = localPeer.addIceCandidate(iceCandidate);
+            Log.d(TAG, "Added ice candidate after answer " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+            pendingIceCandidatesQueue.remove();
+        }
     }
 
     @Override
