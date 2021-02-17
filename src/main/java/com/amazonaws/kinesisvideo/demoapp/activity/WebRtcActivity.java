@@ -73,6 +73,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.HashMap;
 
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CAMERA_FRONT_FACING;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
@@ -87,7 +90,6 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 
 public class WebRtcActivity extends AppCompatActivity {
-
     private static final String TAG = "KVSWebRtcActivity";
     private static final String AudioTrackID = "KvsAudioTrack";
     private static final String VideoTrackID = "KvsVideoTrack";
@@ -143,6 +145,11 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private AWSCredentials mCreds = null;
 
+    // Map to keep track of established peer connections by IDs
+    private HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<String, PeerConnection>();
+    // Map to keep track of ICE candidates received for a client ID before peer connection is established
+    private HashMap<String, Queue<IceCandidate>> pendingIceCandidatesMap = new HashMap<String, Queue<IceCandidate>>();
+
     private void initWsConnection() {
 
         final String masterEndpoint = mWssEndpoint + "?X-Amz-ChannelARN=" + mChannelArn;
@@ -178,8 +185,7 @@ public class WebRtcActivity extends AppCompatActivity {
                         new SessionDescription(SessionDescription.Type.OFFER, sdp));
 
                 recipientClientId = offerEvent.getSenderClientId();
-
-                Log.d(TAG, "Received SDP offer: Creating answer");
+                Log.d(TAG, "Received SDP offer for client ID: " +  recipientClientId + ".Creating answer");
 
                 createSdpAnswer();
             }
@@ -194,6 +200,10 @@ public class WebRtcActivity extends AppCompatActivity {
                 final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
                 localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), sdpAnswer);
+                Log.d(TAG, "Answer Client ID: " + answerEvent.getSenderClientId());
+                peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
+                // Check if ICE candidates are available in the queue and add the candidate
+                handlePendingIceCandidates(answerEvent.getSenderClientId());
 
             }
 
@@ -205,10 +215,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 final IceCandidate iceCandidate = Event.parseIceCandidate(message);
 
                 if(iceCandidate != null) {
-                    // Remote sent us ICE candidates, add to local peer connection
-                    final boolean addIce = localPeer.addIceCandidate(iceCandidate);
-
-                    Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+                    checkAndAddIceCandidate(message, iceCandidate);
                 } else {
                     Log.e(TAG, "Invalid Ice candidate");
                 }
@@ -259,6 +266,54 @@ public class WebRtcActivity extends AppCompatActivity {
         return client != null && client.isOpen();
     }
 
+    private void handlePendingIceCandidates(String clientId) {
+        // Add any pending ICE candidates from the queue for the client ID
+        Log.d(TAG, "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
+        Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(clientId);
+        while(pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
+            final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
+            final PeerConnection peer = peerConnectionFoundMap.get(clientId);
+            final boolean addIce = peer.addIceCandidate(iceCandidate);
+            Log.d(TAG, "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+            pendingIceCandidatesQueueByClientId.remove();
+        }
+        // After sending pending ICE candidates, the client ID's peer connection need not be tracked
+        pendingIceCandidatesMap.remove(clientId);
+    }
+
+    private void checkAndAddIceCandidate(Event message, IceCandidate iceCandidate) {
+        // if answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
+
+        if(!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
+            Log.d(TAG, "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
+
+            // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
+            if(pendingIceCandidatesMap.containsKey(message.getSenderClientId())) {
+                Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.getSenderClientId());
+                pendingIceCandidatesQueueByClientId.add(iceCandidate);
+                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+            }
+
+            // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
+            else {
+                Queue<IceCandidate> pendingIceCandidatesQueueByClientId = new LinkedList<>();
+                pendingIceCandidatesQueueByClientId.add(iceCandidate);
+                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+            }
+        }
+
+        // This is the case where peer connection is established and ICE candidates are received for the established
+        // connection
+        else {
+            Log.d(TAG, "Peer connection found already");
+            // Remote sent us ICE candidates, add to local peer connection
+            final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
+            final boolean addIce = peer.addIceCandidate(iceCandidate);
+
+            Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+        }
+    }
+
     @Override
     protected void onDestroy() {
         Thread.setDefaultUncaughtExceptionHandler(null);
@@ -304,6 +359,8 @@ public class WebRtcActivity extends AppCompatActivity {
             client.disconnect();
             client = null;
         }
+        peerConnectionFoundMap.clear();
+        pendingIceCandidatesMap.clear();
 
         finish();
 
@@ -702,6 +759,9 @@ public class WebRtcActivity extends AppCompatActivity {
                 localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
                 Message answer = Message.createAnswerMessage(sessionDescription, master, recipientClientId);
                 client.sendSdpAnswer(answer);
+
+                peerConnectionFoundMap.put(recipientClientId, localPeer);
+                handlePendingIceCandidates(recipientClientId);
             }
         }, new MediaConstraints());
 
