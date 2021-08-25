@@ -61,9 +61,33 @@
 ## 4. Build and run the demo application using Android Studio
 
  1.  Import the downloaded SDK into the Android Studio integrated development environment by opening the **amazon-kinesis-video-streams-webrtc-sdkandroid/build.gradle** with `Open an existing Android Studio project`.
- 2.  You will need all the information from the above steps copied in clipboard, then paste them into this file on your local file [awsconfiguration.json](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/blob/master/src/main/res/raw/awsconfiguration.json).
- 3.  Click gradle __Sync__ and __Build__
- 4.  Run the demo application in simulator or in Android device (connected through USB).
+ 2.  You will need all the information from the above steps copied in clipboard, then paste them into this file on your local file [awsconfiguration.json](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/blob/master/src/main/res/raw/awsconfiguration.json). Your completed awsconfiguration.json should look something like this:
+ ```json
+ {
+  "Version": "1.0",
+  "CredentialsProvider": {
+    "CognitoIdentity": {
+      "Default": {
+        "PoolId": "us-west-2:01234567-89ab-cdef-0123-456789abcdef",
+        "Region": "us-west-2"
+      }
+    }
+  },
+  "IdentityManager": {
+    "Default": {}
+  },
+  "CognitoUserPool": {
+    "Default": {
+      "AppClientSecret": "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmno",
+      "AppClientId": "0123456789abcdefghijklmnop",
+      "PoolId": "us-west-2_qRsTuVwXy",
+      "Region": "us-west-2"
+    }
+  }
+}
+ ```
+ 4.  Click gradle __Sync__ and __Build__
+ 5.  Run the demo application in simulator or in Android device (connected through USB).
 
 
 ## 5. Peer to Peer Streaming
