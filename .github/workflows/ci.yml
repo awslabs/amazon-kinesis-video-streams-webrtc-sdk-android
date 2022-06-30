@@ -1,0 +1,26 @@
+name: Producer SDK Java CI with Maven
+
+on:
+  push:
+    branches: 
+      - master
+      - add-gha
+  pull_request:
+    branches:
+      - master
+      - add-gha
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: run tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: arm64-v8a
+          script: |
+            echo yes | sdkmanager "build-tools;28.0.3"
+            ./gradlew build jacocoTestReport assembleAndroidTest
