@@ -16,13 +16,12 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v1
-      - uses: actions/checkout@v1
-    - name: set up JDK 1.8
-      uses: actions/setup-java@v1
-      with:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        java-version: 1.8
-    - name: Permission to gradle File
-      run: chmod +x gradlew
-    - name: Build with Gradle
-      run: ./gradlew build jacocoTestReport assembleAndroidTest
+      - name: set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          java-version: 1.8
+      - name: Permission to gradle File
+        run: chmod +x gradlew
+      - name: Build with Gradle
+        run: ./gradlew build jacocoTestReport assembleAndroidTest
