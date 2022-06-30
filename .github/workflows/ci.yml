@@ -26,7 +26,7 @@ jobs:
         with:
           packages: |
             platforms;android-28
-            system-images;android-28;armeabi-v7a
+            system-images;android-28;default;arm64-v8a
       - name: Permission to gradle File
         run: chmod +x gradlew
       - name: Build with Gradle
