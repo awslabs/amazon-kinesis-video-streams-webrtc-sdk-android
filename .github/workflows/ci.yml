@@ -13,6 +13,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_TARGET: android-28
+      ANDROID_ABI: armeabi-v7a
     steps:
       - name: checkout
         uses: actions/checkout@v1
