@@ -13,9 +13,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_TARGET: android-28
-      ANDROID_ABI: armeabi-v7a
     steps:
       - name: checkout
         uses: actions/checkout@v1
@@ -24,12 +21,12 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           java-version: 1.8
-      name: Setup toolchain
-        - uses: maxim-lobanov/setup-android-tools@v1
-          with:
-            packages: |
-              platforms;android-28
-              system-images;android-28;armeabi-v7a
+      - name: Setup toolchain
+        uses: maxim-lobanov/setup-android-tools@v1
+        with:
+          packages: |
+            platforms;android-28
+            system-images;android-28;armeabi-v7a
       - name: Permission to gradle File
         run: chmod +x gradlew
       - name: Build with Gradle
