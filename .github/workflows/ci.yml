@@ -32,4 +32,4 @@ jobs:
       - name: Permission to gradle File
         run: chmod +x gradlew
       - name: Build with Gradle
-        run: ./gradlew build jacocoTestReport assembleAndroidTest
+        run: ./gradlew build jacocoTestReport assembleAndroidTest --stacktrace
