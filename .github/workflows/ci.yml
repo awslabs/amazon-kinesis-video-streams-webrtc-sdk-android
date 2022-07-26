@@ -10,15 +10,18 @@ on:
       - master
 
 jobs:
-  ubuntu-android-build:
-    runs-on: ubuntu-latest
+  macos-android-build:
+    runs-on: macos-latest
     steps:
       - name: Checkout Android SDK branch
         uses: actions/checkout@v1
-      - name: Permission to gradle File
-        run: chmod +x gradlew
-      - name: Build with Gradle
-        run: |
-          ./gradlew build jacocoTestReport assembleAndroidTest --stacktrace
+      - name: Use emulator
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          target: google_apis
+          arch: arm64-v8a
+          api-level: 28
+          ndk: 21.0.6113669
+          script: ./gradlew build jacocoTestReport assembleAndroidTest --stacktrace
       - name: Codecov
         run: bash <(curl -s https://codecov.io/bash)
