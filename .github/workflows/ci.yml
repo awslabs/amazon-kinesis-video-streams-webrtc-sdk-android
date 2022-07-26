@@ -23,6 +23,10 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           java-version: 1.8
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install android-sdk
       - name: Setup toolchain
         uses: maxim-lobanov/setup-android-tools@v1
         with:
