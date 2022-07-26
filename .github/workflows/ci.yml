@@ -10,8 +10,8 @@ on:
       - master
 
 jobs:
-  macos-android-build:
-    runs-on: macos-latest
+  ubuntu-android-build:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Android SDK branch
         uses: actions/checkout@v1
