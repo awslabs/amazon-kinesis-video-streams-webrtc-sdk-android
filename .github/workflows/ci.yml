@@ -20,7 +20,7 @@ jobs:
           image: tonistiigi/binfmt:latest
           platforms: arm64
       - name: Install dependencies
-        run: sudo apt-get -y install gcc-arm-linux-gnueabi g++-arm-linux-gnueabi binutils-arm-linux-gnueabi
+        run: sudo apt-get -y install arm-linux-androideabi
       - name: Checkout Android SDK branch
         uses: actions/checkout@v1
       - name: set up JDK 1.8
