@@ -18,28 +18,23 @@ jobs:
     steps:
       - name: Checkout Android SDK branch
         uses: actions/checkout@v1
-      - name: set up JDK 1.8
-        uses: actions/setup-java@v1
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          java-version: 1.8
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install android-sdk
-      - name: Setup toolchain
-        uses: maxim-lobanov/setup-android-tools@v1
-        with:
-          packages: |
-            platforms;android-28
-            system-images;android-28;default;arm64-v8a
-            build-tools;28.0.3
-            extras;android;m2repository
+      # - name: set up JDK 1.8
+      #   uses: actions/setup-java@v1
+      #   with:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     java-version: 1.8
+      # - name: Setup toolchain
+      #   uses: maxim-lobanov/setup-android-tools@v1
+      #   with:
+      #     packages: |
+      #       platforms;android-28
+      #       system-images;android-28;default;arm64-v8a
+      #       build-tools;28.0.3
+      #       extras;android;m2repository
       - name: Permission to gradle File
         run: chmod +x gradlew
       - name: Build with Gradle
         run: |
-          echo yes | sdkmanager "build-tools;28.0.3"
           ./gradlew build jacocoTestReport assembleAndroidTest --stacktrace
       - name: Codecov
         run: bash <(curl -s https://codecov.io/bash)
