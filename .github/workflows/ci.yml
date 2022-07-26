@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get -y install arm-linux-androideabi
+          sudo apt-get -y install g++-aarch64-linux-gnu g++-arm-linux-gnueabi
       - name: Checkout Android SDK branch
         uses: actions/checkout@v1
       - name: set up JDK 1.8
