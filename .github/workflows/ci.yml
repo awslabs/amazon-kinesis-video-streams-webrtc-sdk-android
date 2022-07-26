@@ -14,6 +14,12 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - name: Set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@v1
+        with:
+          image: tonistiigi/binfmt:latest
+          platforms: arm64
       - name: checkout
         uses: actions/checkout@v1
       - name: set up JDK 1.8
@@ -33,3 +39,5 @@ jobs:
         run: chmod +x gradlew
       - name: Build with Gradle
         run: ./gradlew build jacocoTestReport assembleAndroidTest --stacktrace
+      - name: Codecov
+        run: bash <(curl -s https://codecov.io/bash)
