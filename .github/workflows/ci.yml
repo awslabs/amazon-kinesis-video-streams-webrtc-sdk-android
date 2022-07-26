@@ -13,16 +13,16 @@ jobs:
   ubuntu-qemu-android-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up QEMU
-        id: qemu
-        uses: docker/setup-qemu-action@v1
-        with:
-          image: tonistiigi/binfmt:latest
-          platforms: arm64
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get -y install g++-aarch64-linux-gnu g++-arm-linux-gnueabi
+      # - name: Set up QEMU
+      #   id: qemu
+      #   uses: docker/setup-qemu-action@v1
+      #   with:
+      #     image: tonistiigi/binfmt:latest
+      #     platforms: arm64
+      # - name: Install dependencies
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get -y install g++-aarch64-linux-gnu g++-arm-linux-gnueabi
       - name: Checkout Android SDK branch
         uses: actions/checkout@v1
       - name: set up JDK 1.8
