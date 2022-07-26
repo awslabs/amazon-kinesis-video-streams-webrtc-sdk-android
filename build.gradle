@@ -5,7 +5,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.0.1'
+        classpath 'com.android.tools.build:gradle:3.5.3'
         classpath 'com.dicedmelon.gradle:jacoco-android:0.1.4'
     }
 }
@@ -28,6 +28,7 @@ jacocoAndroidUnitTestReport {
 }
 
 android {
+    android.ndkVersion "21.4.7075529"
     compileSdkVersion 29
     defaultConfig {
         targetSdkVersion 29
