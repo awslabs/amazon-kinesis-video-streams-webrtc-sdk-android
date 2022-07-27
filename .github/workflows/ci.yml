@@ -19,6 +19,6 @@ jobs:
         run: |
           brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/639b4c8d71af8cae918d771c1a990ae128f94777/Formula/gradle.rb
       - name: Build
-          script: ./gradlew build jacocoTestReport assembleAndroidTest --stacktrace
+          run: ./gradlew build jacocoTestReport assembleAndroidTest --stacktrace
       - name: Codecov
         run: bash <(curl -s https://codecov.io/bash)
