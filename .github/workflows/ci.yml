@@ -15,13 +15,10 @@ jobs:
     steps:
       - name: Checkout Android SDK branch
         uses: actions/checkout@v1
-      - name: Use emulator
-        uses: ReactiveCircus/android-emulator-runner@v2
-        with:
-          target: google_apis
-          arch: x86_64
-          api-level: 28
-          ndk: 21.0.6113669
+      - name: Install dependencies
+        run: |
+          brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/639b4c8d71af8cae918d771c1a990ae128f94777/Formula/gradle.rb
+      - name: Build
           script: ./gradlew build jacocoTestReport assembleAndroidTest --stacktrace
       - name: Codecov
         run: bash <(curl -s https://codecov.io/bash)
