@@ -1,5 +1,19 @@
 package com.amazonaws.kinesisvideo.demoapp.activity;
 
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CAMERA_FRONT_FACING;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CLIENT_ID;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_PASSWORD;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_TTL;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_URI;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_USER_NAME;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_IS_MASTER;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_REGION;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_SEND_AUDIO;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_STREAM_ARN;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
+
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -37,6 +51,10 @@ import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClien
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
+import com.amazonaws.regions.Region;
+import com.amazonaws.services.kinesisvideowebrtcstorage.AWSKinesisVideoWebRTCStorageClient;
+import com.amazonaws.services.kinesisvideowebrtcstorage.model.JoinStorageSessionRequest;
+import com.google.common.base.Strings;
 
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
@@ -68,26 +86,14 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.HashMap;
-
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CAMERA_FRONT_FACING;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CLIENT_ID;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_PASSWORD;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_TTL;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_URI;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_USER_NAME;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_IS_MASTER;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_REGION;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_SEND_AUDIO;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
@@ -138,6 +144,9 @@ public class WebRtcActivity extends AppCompatActivity {
     private String mChannelArn;
     private String mClientId;
 
+    private String webrtcEndpoint;
+    private String mStreamArn;
+
     private String mWssEndpoint;
     private String mRegion;
 
@@ -173,6 +182,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
         final String wsHost = signedUri.toString();
 
+        // Step 10. Create Signaling Client Event Listeners.
         final SignalingListener signalingListener = new SignalingListener() {
 
             @Override
@@ -185,7 +195,7 @@ public class WebRtcActivity extends AppCompatActivity {
                         new SessionDescription(SessionDescription.Type.OFFER, sdp));
 
                 recipientClientId = offerEvent.getSenderClientId();
-                Log.d(TAG, "Received SDP offer for client ID: " +  recipientClientId + ".Creating answer");
+                Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ".Creating answer");
 
                 createSdpAnswer();
             }
@@ -214,7 +224,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 final IceCandidate iceCandidate = Event.parseIceCandidate(message);
 
-                if(iceCandidate != null) {
+                if (iceCandidate != null) {
                     checkAndAddIceCandidate(message, iceCandidate);
                 } else {
                     Log.e(TAG, "Invalid Ice candidate");
@@ -236,6 +246,9 @@ public class WebRtcActivity extends AppCompatActivity {
         };
 
 
+        // Step 11. Create SignalingServiceWebSocketClient.
+        //          This is the actual client that is used to send messages over the signaling channel.
+        //          SignalingServiceWebSocketClient will attempt to open the connection in its constructor.
         if (wsHost != null) {
             try {
                 client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
@@ -249,7 +262,34 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
 
-                if (!master) {
+                if (master) {
+
+                    // If webrtc endpoint is non-null ==> Ingest media was checked
+                    if (webrtcEndpoint != null) {
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    final AWSKinesisVideoWebRTCStorageClient storageClient =
+                                            new AWSKinesisVideoWebRTCStorageClient(
+                                                    KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+                                    storageClient.setRegion(Region.getRegion(mRegion));
+                                    storageClient.setSignerRegionOverride(mRegion);
+                                    storageClient.setServiceNameIntern("kinesisvideo");
+                                    storageClient.setEndpoint(webrtcEndpoint);
+
+                                    Log.i(TAG, "Channel ARN is: " + mChannelArn);
+                                    storageClient.joinStorageSession(new JoinStorageSessionRequest()
+                                            .withChannelArn(mChannelArn));
+
+                                    Log.i(TAG, "Media is being recorded to " + mStreamArn);
+                                } catch (Exception ex) {
+                                    Log.e(TAG, "Error ingesting media", ex);
+                                }
+                            }
+                        }).start();
+                    }
+                } else {
                     Log.d(TAG, "Signaling service is connected: " +
                             "Sending offer as viewer to remote peer"); // Viewer
 
@@ -270,7 +310,7 @@ public class WebRtcActivity extends AppCompatActivity {
         // Add any pending ICE candidates from the queue for the client ID
         Log.d(TAG, "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
         Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(clientId);
-        while(pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
+        while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
             final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
             final PeerConnection peer = peerConnectionFoundMap.get(clientId);
             final boolean addIce = peer.addIceCandidate(iceCandidate);
@@ -284,11 +324,11 @@ public class WebRtcActivity extends AppCompatActivity {
     private void checkAndAddIceCandidate(Event message, IceCandidate iceCandidate) {
         // if answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
 
-        if(!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
+        if (!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
             Log.d(TAG, "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
 
             // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
-            if(pendingIceCandidatesMap.containsKey(message.getSenderClientId())) {
+            if (pendingIceCandidatesMap.containsKey(message.getSenderClientId())) {
                 Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.getSenderClientId());
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
                 pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
@@ -392,12 +432,15 @@ public class WebRtcActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        Intent intent = getIntent();
+        final Intent intent = getIntent();
         mChannelArn = intent.getStringExtra(KEY_CHANNEL_ARN);
+        mStreamArn = intent.getStringExtra(KEY_STREAM_ARN);
         mWssEndpoint = intent.getStringExtra(KEY_WSS_ENDPOINT);
+        webrtcEndpoint = intent.getStringExtra(KEY_WEBRTC_ENDPOINT);
 
         mClientId = intent.getStringExtra(KEY_CLIENT_ID);
-        if (mClientId == null || mClientId.isEmpty()) {
+        // If no client identifier is present, a random one will be created.
+        if (Strings.isNullOrEmpty(mClientId)) {
             mClientId = UUID.randomUUID().toString();
         }
         master = intent.getBooleanExtra(KEY_IS_MASTER, true);
@@ -413,7 +456,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
         //TODO: add ui to control TURN only option
 
-        PeerConnection.IceServer stun = PeerConnection
+        final PeerConnection.IceServer stun = PeerConnection
                 .IceServer
                 .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
                 .createIceServer();
@@ -423,7 +466,7 @@ public class WebRtcActivity extends AppCompatActivity {
         if (mUrisList != null) {
             for (int i = 0; i < mUrisList.size(); i++) {
                 String turnServer = mUrisList.get(i).toString();
-                if( turnServer != null) {
+                if (turnServer != null) {
                     IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
                             .setUsername(mUserNames.get(i))
                             .setPassword(mPasswords.get(i))
@@ -462,7 +505,7 @@ public class WebRtcActivity extends AppCompatActivity {
         localVideoTrack = peerConnectionFactory.createVideoTrack(VideoTrackID, videoSource);
         localVideoTrack.addSink(localView);
 
-        if(isAudioSent) {
+        if (isAudioSent) {
 
             AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
             localAudioTrack = peerConnectionFactory.createAudioTrack(AudioTrackID, audioSource);
@@ -521,7 +564,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private void createLocalPeerConnection() {
 
-        PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(peerIceServers);
+        final PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(peerIceServers);
 
         rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
@@ -530,6 +573,9 @@ public class WebRtcActivity extends AppCompatActivity {
         rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
         rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
 
+        // Step 8. Create RTCPeerConnection.
+        //         The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
+        //         We also configure the Add Peer Connection Event Listeners here.
         localPeer = peerConnectionFactory.createPeerConnection(rtcConfig, new KinesisVideoPeerConnection() {
 
             @Override
@@ -658,7 +704,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
         localPeer.addTrack(stream.videoTracks.get(0), Collections.singletonList(stream.getId()));
 
-        if(isAudioSent) {
+        if (isAudioSent) {
             if (!stream.addTrack(localAudioTrack)) {
 
                 Log.e(TAG, "Add audio track failed");
@@ -769,18 +815,18 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private void addRemoteStreamToVideoView(MediaStream stream) {
 
-        final VideoTrack remoteVideoTrack = stream.videoTracks != null && stream.videoTracks.size() > 0? stream.videoTracks.get(0) : null;
+        final VideoTrack remoteVideoTrack = stream.videoTracks != null && stream.videoTracks.size() > 0 ? stream.videoTracks.get(0) : null;
 
-        AudioTrack remoteAudioTrack  = stream.audioTracks != null && stream.audioTracks.size() > 0 ? stream.audioTracks.get(0) : null;
+        AudioTrack remoteAudioTrack = stream.audioTracks != null && stream.audioTracks.size() > 0 ? stream.audioTracks.get(0) : null;
 
-        if(remoteAudioTrack != null ) {
+        if (remoteAudioTrack != null) {
             remoteAudioTrack.setEnabled(true);
             Log.d(TAG, "remoteAudioTrack received: State=" + remoteAudioTrack.state().name());
             audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
             audioManager.setSpeakerphoneOn(true);
         }
 
-        if(remoteVideoTrack != null) {
+        if (remoteVideoTrack != null) {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -809,7 +855,7 @@ public class WebRtcActivity extends AppCompatActivity {
                     mCreds.getAWSSecretKey(), mCreds instanceof AWSSessionCredentials ? ((AWSSessionCredentials) mCreds).getSessionToken() : "", URI.create(mWssEndpoint), mRegion);
         } else {
             signedUri = AwsV4Signer.sign(URI.create(viewerEndpoint), mCreds.getAWSAccessKeyId(),
-                    mCreds.getAWSSecretKey(), mCreds instanceof AWSSessionCredentials ? ((AWSSessionCredentials)mCreds).getSessionToken() : "", URI.create(mWssEndpoint), mRegion);
+                    mCreds.getAWSSecretKey(), mCreds instanceof AWSSessionCredentials ? ((AWSSessionCredentials) mCreds).getSessionToken() : "", URI.create(mWssEndpoint), mRegion);
         }
         return signedUri;
     }
@@ -826,6 +872,7 @@ public class WebRtcActivity extends AppCompatActivity {
             private final int mMarginRight = displayMetrics.widthPixels;
             private final int mMarginBottom = displayMetrics.heightPixels;
             private int deltaOfDownXAndMargin, deltaOfDownYAndMargin;
+
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
                 final int X = (int) motionEvent.getRawX();
