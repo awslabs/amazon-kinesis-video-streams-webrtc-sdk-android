@@ -243,7 +243,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             ArrayList<String> passwords = new ArrayList<>(mIceServerList.size());
             ArrayList<Integer> ttls = new ArrayList<>(mIceServerList.size());
             ArrayList<List<String>> urisList = new ArrayList<>();
-            for (IceServer iceServer : mIceServerList) {
+            for (final IceServer iceServer : mIceServerList) {
                 userNames.add(iceServer.getUsername());
                 passwords.add(iceServer.getPassword());
                 ttls.add(iceServer.getTtl());
@@ -421,6 +421,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                 final AWSKinesisVideoSignalingClient awsKinesisVideoSignalingClient = mFragment.get().getAwsKinesisVideoSignalingClient(region, dataEndpoint);
                 GetIceServerConfigResult getIceServerConfigResult = awsKinesisVideoSignalingClient.getIceServerConfig(
                         new GetIceServerConfigRequest().withChannelARN(mFragment.get().mChannelArn).withClientId(role.name()));
+                System.err.println("OOOOOO " + getIceServerConfigResult.getIceServerList());
                 mFragment.get().mIceServerList.addAll(getIceServerConfigResult.getIceServerList());
             } catch (Exception e) {
                 return "Get Ice Server Config failed with Exception " + e.getLocalizedMessage();

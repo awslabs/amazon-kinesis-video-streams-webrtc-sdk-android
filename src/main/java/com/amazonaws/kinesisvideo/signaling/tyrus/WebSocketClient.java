@@ -1,8 +1,11 @@
 package com.amazonaws.kinesisvideo.signaling.tyrus;
 
+import static org.awaitility.Awaitility.await;
+
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.signaling.SignalingListener;
+import com.amazonaws.kinesisvideo.utils.Constants;
 
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
@@ -10,7 +13,9 @@ import org.glassfish.tyrus.client.ClientProperties;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.concurrent.Callable;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -19,14 +24,12 @@ import javax.websocket.CloseReason;
 import javax.websocket.DeploymentException;
 import javax.websocket.Endpoint;
 import javax.websocket.EndpointConfig;
+import javax.websocket.HandshakeResponse;
 import javax.websocket.Session;
-
-import static org.awaitility.Awaitility.await;
 
 /**
  * A JSR356 based websocket client.
  */
-
 class WebSocketClient {
 
     private static final String TAG = "WebSocketClient";
@@ -40,12 +43,30 @@ class WebSocketClient {
                     final ExecutorService executorService) {
 
         this.executorService = executorService;
-        final ClientEndpointConfig cec = ClientEndpointConfig.Builder.create().build();
+        final ClientEndpointConfig cec = ClientEndpointConfig.Builder.create()
+                .configurator(new ClientEndpointConfig.Configurator() {
+
+                    // Add headers to the WebSocket messages
+                    @Override
+                    public void beforeRequest(final Map<String, List<String>> headers) {
+                        super.beforeRequest(headers);
+                        final String userAgent = Constants.APP_NAME + "/" + Constants.VERSION + " " +
+                                (System.getProperty("http.agent") == null ? "" : System.getProperty("http.agent"));
+                        headers.put("userAgent", Collections.singletonList(userAgent.trim()));
+                    }
+
+                    @Override
+                    public void afterResponse(final HandshakeResponse hr) {
+                        final Map<String, List<String>> headers = hr.getHeaders();
+                        Log.i(TAG, "headers -> " + headers);
+                    }
+                })
+                .build();
 
         clientManager.getProperties().put(ClientProperties.LOG_HTTP_UPGRADE, true);
 
 
-        Endpoint endpoint = new Endpoint() {
+        final Endpoint endpoint = new Endpoint() {
 
             @Override
             public void onOpen(final Session session, final EndpointConfig endpointConfig) {
@@ -68,55 +89,55 @@ class WebSocketClient {
 
         };
 
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    session = clientManager.connectToServer(endpoint, cec, new URI(uri));
-                } catch (final DeploymentException | IOException | URISyntaxException e) {
-                    signalingListener.onException(e);
-                }
+        executorService.submit(() -> {
+            try {
+                session = clientManager.connectToServer(endpoint, cec, new URI(uri));
+            } catch (final DeploymentException | IOException | URISyntaxException e) {
+                signalingListener.onException(e);
             }
         });
 
-        await().atMost(10, TimeUnit.SECONDS).until(new Callable<Boolean>() {
-            @Override
-            public Boolean call() {
-                return WebSocketClient.this.isOpen();
-            }
-        });
+        await().atMost(10, TimeUnit.SECONDS).until(WebSocketClient.this::isOpen);
     }
 
     boolean isOpen() {
-        if (session != null) {
-            Log.d(TAG, " isOpen " + session.isOpen());
-            return session.isOpen();
-
-        } else {
+        if (session == null) {
+            Log.d(TAG, "isOpen: false");
             return false;
         }
+        Log.d(TAG, "isOpen: " + session.isOpen());
+        return session.isOpen();
     }
 
     void send(final String message) {
+        if (!this.isOpen()) {
+            Log.e(TAG, "Connection isn't open!");
+            return;
+        }
+
         try {
             session.getBasicRemote().sendText(message);
         } catch (final IOException e) {
-
-            Log.e(TAG, "Exception" + e.getMessage());
+            Log.e(TAG, "Exception sending message: " + e.getMessage());
         }
     }
 
     void disconnect() {
-        if (session.isOpen()) {
-            try {
-                session.close();
-                executorService.shutdownNow();
-            } catch (final IOException e) {
-                Log.e(TAG, "Exception" + e.getMessage());
-            }
-        } else {
+        if (session == null) {
+            Log.e(TAG, "Connection hasn't opened yet!");
+            return;
+        }
+
+        if (!session.isOpen()) {
             Log.w(TAG, "Connection already closed for " + session.getRequestURI());
         }
-    }
 
+        try {
+            session.close();
+            executorService.shutdownNow();
+            Log.i(TAG, "Disconnected from " + session.getRequestURI() + " successfully!");
+        } catch (final IOException e) {
+            Log.e(TAG, "Exception closing: " + e.getMessage());
+        }
+    }
 }

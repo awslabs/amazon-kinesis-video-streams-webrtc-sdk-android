@@ -1,5 +1,11 @@
 package com.amazonaws.kinesisvideo.utils;
 
+import static com.google.common.hash.Hashing.sha256;
+import static org.apache.commons.lang3.StringUtils.EMPTY;
+import static org.apache.commons.lang3.StringUtils.isEmpty;
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.amazonaws.util.BinaryUtils;
 import com.amazonaws.util.DateUtils;
 import com.google.common.collect.ImmutableMap;
@@ -23,12 +29,6 @@ import java.util.StringJoiner;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-
-import static com.google.common.hash.Hashing.sha256;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.commons.lang3.StringUtils.EMPTY;
-import static org.apache.commons.lang3.StringUtils.isEmpty;
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 @SuppressWarnings({"SpellCheckingInspection", "SameParameterValue"})
 public class AwsV4Signer {
@@ -58,6 +58,7 @@ public class AwsV4Signer {
                            final String sessionToken, final URI wssUri, final String region) {
 
         final long dateMilli = new Date().getTime();
+        System.err.println(dateMilli);
         final String amzDate = getTimeStamp(dateMilli);
         final String datestamp = getDateStamp(dateMilli);
 
@@ -123,7 +124,7 @@ public class AwsV4Signer {
                 .add(payloadHash)
                 .toString();
 
-       return canonicalRequest;
+        return canonicalRequest;
     }
 
     private static String getCanonicalUri(URI uri) {

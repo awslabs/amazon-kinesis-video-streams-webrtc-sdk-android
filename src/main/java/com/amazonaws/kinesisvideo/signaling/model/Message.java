@@ -1,6 +1,7 @@
 package com.amazonaws.kinesisvideo.signaling.model;
 
 import android.util.Base64;
+
 import org.webrtc.SessionDescription;
 
 public class Message {
@@ -14,22 +15,21 @@ public class Message {
     private String messagePayload;
 
 
-    public Message() {}
+    public Message() {
+    }
 
-    public Message(String action, String recipientClientId, String senderClientId, String messagePayload) {
-
+    public Message(final String action, final String recipientClientId, final String senderClientId, final String messagePayload) {
         this.action = action;
         this.recipientClientId = recipientClientId;
         this.senderClientId = senderClientId;
         this.messagePayload = messagePayload;
-
     }
 
     public String getAction() {
         return action;
     }
 
-    public void setAction(String action) {
+    public void setAction(final String action) {
         this.action = action;
     }
 
@@ -37,7 +37,7 @@ public class Message {
         return recipientClientId;
     }
 
-    public void setRecipientClientId(String recipientClientId) {
+    public void setRecipientClientId(final String recipientClientId) {
         this.recipientClientId = recipientClientId;
     }
 
@@ -45,7 +45,7 @@ public class Message {
         return senderClientId;
     }
 
-    public void setSenderClientId(String senderClientId) {
+    public void setSenderClientId(final String senderClientId) {
         this.senderClientId = senderClientId;
     }
 
@@ -53,24 +53,24 @@ public class Message {
         return messagePayload;
     }
 
-    public void setMessagePayload(String messagePayload) {
+    public void setMessagePayload(final String messagePayload) {
         this.messagePayload = messagePayload;
     }
 
 
     /**
      * @param sessionDescription SDP description to be converted & sent to signaling service
-     * @param master true if local is set to be the master
-     * @param recipientClientId - has to be set to null if this is set as viewer
+     * @param master             true if local is set to be the master
+     * @param recipientClientId  - has to be set to null if this is set as viewer
      * @return SDP Answer message to be sent to signaling service
      */
-    public static  Message createAnswerMessage(SessionDescription sessionDescription, boolean master, String recipientClientId) {
+    public static Message createAnswerMessage(final SessionDescription sessionDescription, final boolean master, final String recipientClientId) {
 
-        String description = sessionDescription.description;
+        final String description = sessionDescription.description;
 
-        String answerPayload = "{\"type\":\"answer\",\"sdp\":\"" + description.replace("\r\n", "\\r\\n") + "\"}";
+        final String answerPayload = "{\"type\":\"answer\",\"sdp\":\"" + description.replace("\r\n", "\\r\\n") + "\"}";
 
-        String encodedString = new String(Base64.encode(answerPayload.getBytes(), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP));
+        final String encodedString = new String(Base64.encode(answerPayload.getBytes(), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP));
 
         // SenderClientId should always be "" for master creating answer case
         return new Message("SDP_ANSWER", recipientClientId, "", encodedString);
@@ -79,16 +79,16 @@ public class Message {
 
     /**
      * @param sessionDescription SDP description to be converted  as Offer Message & sent to signaling service
-     * @param clientId Client Id to mark this viewer in signaling service
+     * @param clientId           Client Id to mark this viewer in signaling service
      * @return SDP Offer message to be sent to signaling service
      */
-    public static Message createOfferMessage(SessionDescription sessionDescription, String clientId) {
+    public static Message createOfferMessage(final SessionDescription sessionDescription, final String clientId) {
 
-        String description = sessionDescription.description;
+        final String description = sessionDescription.description;
 
-        String offerPayload = "{\"type\":\"offer\",\"sdp\":\"" + description.replace("\r\n", "\\r\\n") + "\"}";
+        final String offerPayload = "{\"type\":\"offer\",\"sdp\":\"" + description.replace("\r\n", "\\r\\n") + "\"}";
 
-        String encodedString = new String(Base64.encode(offerPayload.getBytes(), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP));
+        final String encodedString = new String(Base64.encode(offerPayload.getBytes(), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP));
 
         return new Message("SDP_OFFER", "", clientId, encodedString);
     }
