@@ -116,11 +116,11 @@ dependencies {
     implementation 'com.github.tony19:logback-android:2.0.0'
     implementation 'commons-codec:commons-codec:1.9'
 
-    minSdk24Implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.12') {
+    minSdk24Implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.20') {
         exclude module: 'javax.inject'
     }
 
-    minSdk28Implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.15') {
+    minSdk28Implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.20') {
         exclude module: 'javax.inject'
     }
 

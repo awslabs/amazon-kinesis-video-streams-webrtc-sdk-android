@@ -421,7 +421,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                 final AWSKinesisVideoSignalingClient awsKinesisVideoSignalingClient = mFragment.get().getAwsKinesisVideoSignalingClient(region, dataEndpoint);
                 GetIceServerConfigResult getIceServerConfigResult = awsKinesisVideoSignalingClient.getIceServerConfig(
                         new GetIceServerConfigRequest().withChannelARN(mFragment.get().mChannelArn).withClientId(role.name()));
-                System.err.println("OOOOOO " + getIceServerConfigResult.getIceServerList());
                 mFragment.get().mIceServerList.addAll(getIceServerConfigResult.getIceServerList());
             } catch (Exception e) {
                 return "Get Ice Server Config failed with Exception " + e.getLocalizedMessage();

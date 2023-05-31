@@ -13,7 +13,8 @@ import org.webrtc.IceCandidate;
 import java.util.Optional;
 
 /**
- * A class representing the Event object.
+ * A class representing the Event object. All response messages are asynchronously delivered
+ * to the recipient as events (for example, an SDP offer or SDP answer delivery).
  *
  * @see <a href="https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-7.html">Event</a>
  */

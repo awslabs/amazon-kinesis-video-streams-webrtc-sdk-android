@@ -4,8 +4,9 @@ import static org.awaitility.Awaitility.await;
 
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.amazonaws.kinesisvideo.signaling.SignalingListener;
-import com.amazonaws.kinesisvideo.utils.Constants;
 
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
@@ -13,9 +14,6 @@ import org.glassfish.tyrus.client.ClientProperties;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -24,7 +22,6 @@ import javax.websocket.CloseReason;
 import javax.websocket.DeploymentException;
 import javax.websocket.Endpoint;
 import javax.websocket.EndpointConfig;
-import javax.websocket.HandshakeResponse;
 import javax.websocket.Session;
 
 /**
@@ -43,25 +40,9 @@ class WebSocketClient {
                     final ExecutorService executorService) {
 
         this.executorService = executorService;
-        final ClientEndpointConfig cec = ClientEndpointConfig.Builder.create()
-                .configurator(new ClientEndpointConfig.Configurator() {
+        final ClientEndpointConfig cec = ClientEndpointConfig.Builder.create().build();
 
-                    // Add headers to the WebSocket messages
-                    @Override
-                    public void beforeRequest(final Map<String, List<String>> headers) {
-                        super.beforeRequest(headers);
-                        final String userAgent = Constants.APP_NAME + "/" + Constants.VERSION + " " +
-                                (System.getProperty("http.agent") == null ? "" : System.getProperty("http.agent"));
-                        headers.put("userAgent", Collections.singletonList(userAgent.trim()));
-                    }
-
-                    @Override
-                    public void afterResponse(final HandshakeResponse hr) {
-                        final Map<String, List<String>> headers = hr.getHeaders();
-                        Log.i(TAG, "headers -> " + headers);
-                    }
-                })
-                .build();
+        cec.getUserProperties().put("userAgent", "my-verycool-test-user-agent");
 
         clientManager.getProperties().put(ClientProperties.LOG_HTTP_UPGRADE, true);
 
@@ -109,7 +90,7 @@ class WebSocketClient {
         return session.isOpen();
     }
 
-    void send(final String message) {
+    void send(@NonNull final String message) {
         if (!this.isOpen()) {
             Log.e(TAG, "Connection isn't open!");
             return;
@@ -130,6 +111,7 @@ class WebSocketClient {
 
         if (!session.isOpen()) {
             Log.w(TAG, "Connection already closed for " + session.getRequestURI());
+            return;
         }
 
         try {

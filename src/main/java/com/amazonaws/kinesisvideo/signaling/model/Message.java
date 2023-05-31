@@ -70,7 +70,7 @@ public class Message {
 
         final String answerPayload = "{\"type\":\"answer\",\"sdp\":\"" + description.replace("\r\n", "\\r\\n") + "\"}";
 
-        final String encodedString = new String(Base64.encode(answerPayload.getBytes(), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP));
+        final String encodedString = new String(Base64.encode(answerPayload.getBytes(), Base64.URL_SAFE | Base64.NO_WRAP));
 
         // SenderClientId should always be "" for master creating answer case
         return new Message("SDP_ANSWER", recipientClientId, "", encodedString);
@@ -78,7 +78,7 @@ public class Message {
 
 
     /**
-     * @param sessionDescription SDP description to be converted  as Offer Message & sent to signaling service
+     * @param sessionDescription SDP description to be converted as Offer Message & sent to signaling service
      * @param clientId           Client Id to mark this viewer in signaling service
      * @return SDP Offer message to be sent to signaling service
      */
@@ -88,7 +88,7 @@ public class Message {
 
         final String offerPayload = "{\"type\":\"offer\",\"sdp\":\"" + description.replace("\r\n", "\\r\\n") + "\"}";
 
-        final String encodedString = new String(Base64.encode(offerPayload.getBytes(), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP));
+        final String encodedString = new String(Base64.encode(offerPayload.getBytes(), Base64.URL_SAFE | Base64.NO_WRAP));
 
         return new Message("SDP_OFFER", "", clientId, encodedString);
     }

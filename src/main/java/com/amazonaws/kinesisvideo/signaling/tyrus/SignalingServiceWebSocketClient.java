@@ -58,7 +58,7 @@ public class SignalingServiceWebSocketClient {
                 if (answer.getAction().equalsIgnoreCase("SDP_ANSWER")) {
 
                     Log.d(TAG, "Answer sent " + new String(Base64.decode(answer.getMessagePayload().getBytes(),
-                            Base64.NO_WRAP | Base64.NO_PADDING | Base64.URL_SAFE)));
+                            Base64.NO_WRAP | Base64.URL_SAFE)));
 
                     send(answer);
                 }

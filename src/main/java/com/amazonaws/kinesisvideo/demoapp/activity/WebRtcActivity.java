@@ -81,6 +81,7 @@ import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
+import org.webrtc.audio.JavaAudioDeviceModule;
 
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -156,11 +157,23 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private AWSCredentials mCreds = null;
 
+    /**
+     * Prints WebRTC stats to the debug console every so often.
+     */
     private final ScheduledExecutorService printStatsExecutor = Executors.newSingleThreadScheduledExecutor();
 
-    // Map to keep track of established peer connections by IDs
+    /**
+     * Mapping of established peer connections to the peer's sender id. In other words, if an SDP
+     * offer/answer for a peer connection has been received and sent, the PeerConnection is added
+     * to this map.
+     */
     private final HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<String, PeerConnection>();
-    // Map to keep track of ICE candidates received for a client ID before peer connection is established
+
+    /**
+     * Only used when we are master. Mapping of the peer's sender id to its received ICE candidates.
+     * Since we can receive ICE Candidates before we have sent the answer, we hold ICE candidates in
+     * this queue until after we send the answer and the peer connection is established.
+     */
     private final HashMap<String, Queue<IceCandidate>> pendingIceCandidatesMap = new HashMap<String, Queue<IceCandidate>>();
 
     private void initWsConnection() {
@@ -202,9 +215,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 createSdpAnswer();
 
                 if (master && webrtcEndpoint != null) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(getApplicationContext(), "Media is being recorded to " + mStreamArn, Toast.LENGTH_LONG).show();
-                    });
+                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Media is being recorded to " + mStreamArn, Toast.LENGTH_LONG).show());
                     Log.i(TAG, "Media is being recorded to " + mStreamArn);
                 }
             }
@@ -312,6 +323,14 @@ public class WebRtcActivity extends AppCompatActivity {
         return client != null && client.isOpen();
     }
 
+    /**
+     * Called once the peer connection is established. Checks the pending ICE candidate queue to see
+     * if we have received any before we finished sending the SDP answer. If so, add those ICE
+     * candidates to the peer connection belonging to this clientId.
+     *
+     * @param clientId The sender client id of the peer whose peer connection was just established.
+     * @see #pendingIceCandidatesMap
+     */
     private void handlePendingIceCandidates(final String clientId) {
         // Add any pending ICE candidates from the queue for the client ID
         Log.d(TAG, "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
@@ -328,7 +347,8 @@ public class WebRtcActivity extends AppCompatActivity {
     }
 
     private void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
-        // if answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
+        // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
+        // Once the peer connection is found, add them directly instead of adding it to the queue.
 
         if (!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
             Log.d(TAG, "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
@@ -506,6 +526,9 @@ public class WebRtcActivity extends AppCompatActivity {
                 PeerConnectionFactory.builder()
                         .setVideoDecoderFactory(vdf)
                         .setVideoEncoderFactory(vef)
+                        .setAudioDeviceModule(JavaAudioDeviceModule.builder(getApplicationContext())
+                                .setSampleRate(16000)
+                                .createAudioDeviceModule())
                         .createPeerConnectionFactory();
 
         Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
@@ -705,7 +728,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
         return new Message("ICE_CANDIDATE", recipientClientId, senderClientId,
                 new String(Base64.encode(messagePayload.getBytes(),
-                        Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP)));
+                        Base64.URL_SAFE | Base64.NO_WRAP)));
     }
 
     private void addStreamToLocalPeer() {
@@ -810,6 +833,11 @@ public class WebRtcActivity extends AppCompatActivity {
     // when local is set to be the master
     private void createSdpAnswer() {
 
+        MediaConstraints sdpMediaConstraints = new MediaConstraints();
+
+        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+
         localPeer.createAnswer(new KinesisVideoSdpObserver() {
 
             @Override
@@ -833,7 +861,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 }
                 gotException = true;
             }
-        }, new MediaConstraints());
+        }, sdpMediaConstraints);
     }
 
     private void addRemoteStreamToVideoView(MediaStream stream) {
