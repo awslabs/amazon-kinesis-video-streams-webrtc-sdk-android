@@ -95,6 +95,8 @@
             android:text="Ingest media (master only)"
             android:layoutDirection="rtl"
             android:id="@+id/ingest_media"
+            android:layout_margin="16dp"
+            android:textSize="16sp"
             tools:ignore="HardcodedText" />
 
         <ListView
@@ -106,30 +108,34 @@
             android:layout_width="match_parent"
             android:layout_height="20dp" />
 
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/start_master"
-            android:text="Start Master"
-            android:padding="10dp"
-            android:background="@drawable/button_selector"
-            android:layout_gravity="center"
-            android:layout_margin="10dp"
-            tools:ignore="HardcodedText" />
-
-        <Space
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="20dp" />
-
-        <Button
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/start_viewer"
-            android:text="Start Viewer"
-            android:layout_gravity="center"
-            android:padding="10dp"
-            android:background="@drawable/button_selector"
-            android:layout_margin="10dp"
-            tools:ignore="HardcodedText" />
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/start_master"
+                android:text="Start Master"
+                android:padding="10dp"
+                android:background="@drawable/button_selector"
+                android:layout_gravity="center"
+                android:layout_margin="10dp"
+                tools:ignore="HardcodedText" />
+
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/start_viewer"
+                android:text="Start Viewer"
+                android:layout_gravity="center"
+                android:padding="10dp"
+                android:background="@drawable/button_selector"
+                android:layout_margin="10dp"
+                tools:ignore="HardcodedText" />
+
+        </LinearLayout>
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
