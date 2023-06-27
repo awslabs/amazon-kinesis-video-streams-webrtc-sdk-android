@@ -143,4 +143,14 @@ public class Event {
                 .orElse("");
     }
 
+    @Override
+    public String toString() {
+        return "Event(" +
+                "senderClientId='" + senderClientId + '\'' +
+                ", messageType='" + messageType + '\'' +
+                ", messagePayload='" + messagePayload + '\'' +
+                ", statusCode='" + statusCode + '\'' +
+                ", body='" + body + '\'' +
+                ')';
+    }
 }

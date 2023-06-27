@@ -27,13 +27,24 @@ public class KinesisVideoWebRtcDemoApp extends Application {
         return AWSMobileClient.getInstance();
     }
 
+    /**
+     * Parse awsconfiguration.json and extract the region from it.
+     *
+     * @return The region in String form. {@code null} if not.
+     * @throws IllegalStateException if awsconfiguration.json is not properly configured.
+     */
     public static String getRegion() {
-        AWSConfiguration configuration = AWSMobileClient.getInstance().getConfiguration();
-        JSONObject jsonObject = configuration.optJsonObject("CredentialsProvider");
+        final AWSConfiguration configuration = AWSMobileClient.getInstance().getConfiguration();
+        if (configuration == null) {
+            throw new IllegalStateException("awsconfiguration.json has not been properly configured!");
+        }
+
+        final JSONObject jsonObject = configuration.optJsonObject("CredentialsProvider");
+
         String region = null;
         try {
             region = (String) ((JSONObject) (((JSONObject) jsonObject.get("CognitoIdentity")).get("Default"))).get("Region");
-        } catch (JSONException e) {
+        } catch (final JSONException e) {
             Log.e(TAG, "Got exception when extracting region from cognito setting.", e);
         }
         return region;

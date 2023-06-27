@@ -7,6 +7,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.amazonaws.kinesisvideo.signaling.SignalingListener;
+import com.amazonaws.kinesisvideo.utils.Constants;
 
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
@@ -42,7 +43,11 @@ class WebSocketClient {
         this.executorService = executorService;
         final ClientEndpointConfig cec = ClientEndpointConfig.Builder.create().build();
 
-        cec.getUserProperties().put("userAgent", "my-verycool-test-user-agent");
+        System.getProperties().forEach((k, v) -> System.err.println(k + ": " + v));
+
+        final String userAgent = Constants.APP_NAME + "/" + Constants.VERSION + System.getProperty("http.user");
+
+        cec.getUserProperties().put("userAgent", "my-cool-agent");
 
         clientManager.getProperties().put(ClientProperties.LOG_HTTP_UPGRADE, true);
 

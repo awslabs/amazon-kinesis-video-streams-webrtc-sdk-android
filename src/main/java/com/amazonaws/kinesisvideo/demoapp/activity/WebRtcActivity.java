@@ -200,6 +200,7 @@ public class WebRtcActivity extends AppCompatActivity {
         final String wsHost = signedUri.toString();
 
         // Step 10. Create Signaling Client Event Listeners.
+        //          When we receive messages, we need to take the appropriate action.
         final SignalingListener signalingListener = new SignalingListener() {
 
             @Override

@@ -17,6 +17,7 @@ import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Spinner;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -191,9 +192,26 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private void startMasterActivity() {
-        updateSignalingChannelInfo(mRegion.getText().toString(),
+
+        // Check that the "Send Audio" and "Send Video" boxes are enabled.
+        final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
+        for (int i = 0; i < mOptions.getCount(); i++) {
+            if (!checked.get(i)) {
+                new AlertDialog.Builder(getActivity())
+                        .setPositiveButton("OK", null)
+                        .setMessage("Audio and video must be sent to ingest media!")
+                        .create()
+                        .show();
+                return;
+            }
+        }
+
+        if (!updateSignalingChannelInfo(mRegion.getText().toString(),
                 mChannelName.getText().toString(),
-                ChannelRole.MASTER);
+                ChannelRole.MASTER)) {
+            return;
+        }
+
         if (mChannelArn != null) {
             Bundle extras = setExtras(true);
             Intent intent = new Intent(getActivity(), WebRtcActivity.class);
@@ -212,9 +230,11 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private void startViewerActivity() {
-        updateSignalingChannelInfo(mRegion.getText().toString(),
+        if (!updateSignalingChannelInfo(mRegion.getText().toString(),
                 mChannelName.getText().toString(),
-                ChannelRole.VIEWER);
+                ChannelRole.VIEWER)) {
+            return;
+        }
 
         if (mChannelArn != null) {
             Bundle extras = setExtras(false);
@@ -297,18 +317,38 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         return client;
     }
 
-    private void updateSignalingChannelInfo(final String region, final String channelName, final ChannelRole role) {
+    /**
+     * Fetches info needed to connect to the Amazon Kinesis Video Streams Signaling channel.
+     *
+     * @param region      The region the Signaling channel is located in.
+     * @param channelName The name of the Amazon Kinesis Video Streams Signaling channel.
+     * @param role        The signaling channel role (master or viewer).
+     * @return {@code true} on success. {@code false} if unsuccessful.
+     */
+    private boolean updateSignalingChannelInfo(final String region, final String channelName, final ChannelRole role) {
         mEndpointList.clear();
         mIceServerList.clear();
         mChannelArn = null;
         final UpdateSignalingChannelInfoTask task = new UpdateSignalingChannelInfoTask(this);
+
+        String errorMessage = null;
         try {
-            task.execute(region, channelName, role).get();
+            errorMessage = task.execute(region, channelName, role).get();
         } catch (Exception e) {
             Log.e(TAG, "Failed to wait for response of UpdateSignalingChannelInfoTask", e);
         }
+
+        if (errorMessage != null) {
+            Log.e(TAG, "updateSignalingChannelInfo() encountered an error: " + errorMessage);
+        }
+        return errorMessage == null;
     }
 
+    /**
+     * Makes backend calls to KVS in order to obtain info needed to start the WebRTC session.
+     * <p>
+     * The task returns {@code null} upon success, otherwise, it returns an error message.
+     */
     static class UpdateSignalingChannelInfoTask extends AsyncTask<Object, String, String> {
         final WeakReference<StreamWebRtcConfigurationFragment> mFragment;
 
@@ -317,7 +357,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         }
 
         @Override
-        protected String doInBackground(Object... objects) {
+        protected String doInBackground(final Object... objects) {
             final String region = (String) objects[0];
             final String channelName = (String) objects[1];
             final ChannelRole role = (ChannelRole) objects[2];
@@ -362,13 +402,14 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             // Step 3. If we are ingesting media, we need to check if the Signaling Channel has a Kinesis Video
             //         Stream configured to write media to. We can call the DescribeMediaStorageConfiguration API
             //         to determine this.
-            if (mFragment.get().mIngestMedia.isChecked()) {
+            if (role == ChannelRole.MASTER && mFragment.get().mIngestMedia.isChecked()) {
                 try {
                     final DescribeMediaStorageConfigurationResult describeMediaStorageConfigurationResult = awsKinesisVideoClient.describeMediaStorageConfiguration(
                             new DescribeMediaStorageConfigurationRequest()
                                     .withChannelARN(mFragment.get().mChannelArn));
 
-                    if (!describeMediaStorageConfigurationResult.getMediaStorageConfiguration().getStatus().equals("ENABLED")) {
+                    if (!"ENABLED".equalsIgnoreCase(describeMediaStorageConfigurationResult.getMediaStorageConfiguration().getStatus())) {
+                        Log.e(TAG, "Media storage is not enabled for this channel!");
                         return "Media Storage is DISABLED for this channel!";
                     }
                     mFragment.get().mStreamArn = describeMediaStorageConfigurationResult.getMediaStorageConfiguration().getStreamARN();
@@ -429,11 +470,19 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             return null;
         }
 
+        /**
+         * Shows a Dialog box if any errors were returned in {@link #doInBackground(Object...)}.
+         *
+         * @param result This will be displayed in the Dialog box.
+         */
         @Override
-        protected void onPostExecute(String result) {
+        protected void onPostExecute(final String result) {
             if (result != null) {
-                AlertDialog.Builder diag = new AlertDialog.Builder(mFragment.get().getContext());
-                diag.setPositiveButton("OK", null).setMessage(result).create().show();
+                new AlertDialog.Builder(mFragment.get().getContext())
+                        .setPositiveButton("OK", null)
+                        .setMessage(result)
+                        .create()
+                        .show();
             }
         }
     }
