@@ -275,8 +275,10 @@ public class WebRtcActivity extends AppCompatActivity {
                 client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
 
                 Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
-            } catch (Exception e) {
+            } catch (final Exception e) {
+                Log.e(TAG, "Exception with websocket client: " + e);
                 gotException = true;
+                return;
             }
 
             if (isValidClient()) {
@@ -289,7 +291,6 @@ public class WebRtcActivity extends AppCompatActivity {
                     if (webrtcEndpoint != null) {
                         new Thread(() -> {
                             try {
-                                Thread.sleep(4500);
                                 final AWSKinesisVideoWebRTCStorageClient storageClient =
                                         new AWSKinesisVideoWebRTCStorageClient(
                                                 KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
@@ -528,10 +529,10 @@ public class WebRtcActivity extends AppCompatActivity {
                         .setVideoDecoderFactory(vdf)
                         .setVideoEncoderFactory(vef)
                         .setAudioDeviceModule(JavaAudioDeviceModule.builder(getApplicationContext())
-                                .setSampleRate(16000)
                                 .createAudioDeviceModule())
                         .createPeerConnectionFactory();
 
+        // Enable Google WebRTC debug logs
         Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
 
         videoCapturer = createVideoCapturer();
@@ -781,7 +782,7 @@ public class WebRtcActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onMessage(DataChannel.Buffer buffer) {
+            public void onMessage(final DataChannel.Buffer buffer) {
                 // Send out data, no op on sender side
             }
         });
@@ -834,7 +835,7 @@ public class WebRtcActivity extends AppCompatActivity {
     // when local is set to be the master
     private void createSdpAnswer() {
 
-        MediaConstraints sdpMediaConstraints = new MediaConstraints();
+        final MediaConstraints sdpMediaConstraints = new MediaConstraints();
 
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
@@ -857,6 +858,7 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onCreateFailure(final String error) {
                 super.onCreateFailure(error);
 
+                // Some emulators are missing H.264 support.
                 if (error.contains("ERROR_CONTENT")) {
                     Log.e(TAG, "Device missing H.264 support!");
                 }
@@ -909,7 +911,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     @SuppressLint("ClickableViewAccessibility")
     private void resizeLocalView() {
-        DisplayMetrics displayMetrics = new DisplayMetrics();
+        final DisplayMetrics displayMetrics = new DisplayMetrics();
         final ViewGroup.LayoutParams lp = localView.getLayoutParams();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
         lp.height = (int) (displayMetrics.heightPixels * 0.25);
@@ -964,7 +966,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private void resizeRemoteView() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            DisplayMetrics displayMetrics = new DisplayMetrics();
+            final DisplayMetrics displayMetrics = new DisplayMetrics();
             final ViewGroup.LayoutParams lp = remoteView.getLayoutParams();
             getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
             lp.height = (int) (displayMetrics.heightPixels * 0.75);
@@ -978,14 +980,14 @@ public class WebRtcActivity extends AppCompatActivity {
         // Create the NotificationChannel, but only on API 26+ because
         // the NotificationChannel class is new and not in the support library
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = getString(R.string.data_channel_notification);
-            String description = getString(R.string.data_channel_notification_description);
-            int importance = NotificationManager.IMPORTANCE_HIGH;
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            final CharSequence name = getString(R.string.data_channel_notification);
+            final String description = getString(R.string.data_channel_notification_description);
+            final int importance = NotificationManager.IMPORTANCE_HIGH;
+            final NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
             channel.setDescription(description);
             // Register the channel with the system; you can't change the importance
             // or other notification behaviors after this
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            final NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
         }
     }

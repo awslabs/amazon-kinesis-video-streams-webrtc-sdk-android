@@ -1,6 +1,7 @@
 package com.amazonaws.kinesisvideo.demoapp.fragment;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
@@ -10,6 +11,7 @@ import android.util.SparseBooleanArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -53,6 +55,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 public class StreamWebRtcConfigurationFragment extends Fragment {
     private static final String TAG = StreamWebRtcConfigurationFragment.class.getSimpleName();
@@ -193,16 +196,18 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
     private void startMasterActivity() {
 
-        // Check that the "Send Audio" and "Send Video" boxes are enabled.
-        final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
-        for (int i = 0; i < mOptions.getCount(); i++) {
-            if (!checked.get(i)) {
-                new AlertDialog.Builder(getActivity())
-                        .setPositiveButton("OK", null)
-                        .setMessage("Audio and video must be sent to ingest media!")
-                        .create()
-                        .show();
-                return;
+        if (mIngestMedia.isChecked()) {
+            // Check that the "Send Audio" and "Send Video" boxes are enabled.
+            final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
+            for (int i = 0; i < mOptions.getCount(); i++) {
+                if (!checked.get(i)) {
+                    new AlertDialog.Builder(getActivity())
+                            .setPositiveButton("OK", null)
+                            .setMessage("Audio and video must be sent to ingest media!")
+                            .create()
+                            .show();
+                    return;
+                }
             }
         }
 
