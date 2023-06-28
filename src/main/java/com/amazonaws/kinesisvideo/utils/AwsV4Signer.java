@@ -58,7 +58,6 @@ public class AwsV4Signer {
                            final String sessionToken, final URI wssUri, final String region) {
 
         final long dateMilli = new Date().getTime();
-        System.err.println(dateMilli);
         final String amzDate = getTimeStamp(dateMilli);
         final String datestamp = getDateStamp(dateMilli);
 
