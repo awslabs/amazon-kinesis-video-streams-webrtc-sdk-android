@@ -858,9 +858,9 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onCreateFailure(final String error) {
                 super.onCreateFailure(error);
 
-                // Some emulators are missing H.264 support.
+                // Device is unable to support the requested media format
                 if (error.contains("ERROR_CONTENT")) {
-                    Log.e(TAG, "Device missing H.264 support!");
+                    Log.e(TAG, "No supported codec is present in the offer!");
                 }
                 gotException = true;
             }
