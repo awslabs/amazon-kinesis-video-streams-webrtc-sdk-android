@@ -93,6 +93,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -192,6 +193,11 @@ public class WebRtcActivity extends AppCompatActivity {
             signedUri = getSignedUri(masterEndpoint);
         } else {
             signedUri = getSignedUri(viewerEndpoint);
+        }
+
+        if (signedUri == null) {
+            gotException = true;
+            return;
         }
 
         if (master) {
@@ -898,14 +904,31 @@ public class WebRtcActivity extends AppCompatActivity {
 
     }
 
-    private URI getSignedUri(String endpoint) {
+    /**
+     * Constructs and returns signed URL for the specified endpoint.
+     *
+     * @param endpoint The websocket endpoint (master or viewer endpoint)
+     * @return A signed URL. {@code null} if there was an issue fetching credentials.
+     */
+    private URI getSignedUri(final String endpoint) {
+        final String accessKey = mCreds.getAWSAccessKeyId();
+        final String secretKey = mCreds.getAWSSecretKey();
+        final String sessionToken = Optional.of(mCreds)
+                .filter(creds -> creds instanceof AWSSessionCredentials)
+                .map(awsCredentials -> (AWSSessionCredentials) awsCredentials)
+                .map(AWSSessionCredentials::getSessionToken)
+                .orElse("");
+
+        if (accessKey.isEmpty() || secretKey.isEmpty()) {
+            Toast.makeText(this, "Failed to fetch credentials!", Toast.LENGTH_LONG).show();
+            return null;
+        }
+
         return AwsV4Signer.sign(
                 URI.create(endpoint),
-                mCreds.getAWSAccessKeyId(),
-                mCreds.getAWSSecretKey(),
-                mCreds instanceof AWSSessionCredentials ?
-                        ((AWSSessionCredentials) mCreds).getSessionToken() :
-                        "",
+                secretKey,
+                accessKey,
+                sessionToken,
                 URI.create(mWssEndpoint),
                 mRegion);
     }
