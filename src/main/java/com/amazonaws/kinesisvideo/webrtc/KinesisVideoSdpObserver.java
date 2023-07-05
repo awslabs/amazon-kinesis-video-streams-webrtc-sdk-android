@@ -1,6 +1,7 @@
 package com.amazonaws.kinesisvideo.webrtc;
 
 import android.util.Log;
+
 import org.webrtc.SdpObserver;
 import org.webrtc.SessionDescription;
 
@@ -9,7 +10,7 @@ public class KinesisVideoSdpObserver implements SdpObserver {
     protected static final String TAG = KinesisVideoSdpObserver.class.getSimpleName();
 
     @Override
-    public void onCreateSuccess(SessionDescription sessionDescription) {
+    public void onCreateSuccess(final SessionDescription sessionDescription) {
 
         Log.d(TAG, "onCreateSuccess(): SDP=" + sessionDescription.description);
     }

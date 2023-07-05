@@ -14,17 +14,18 @@ apply plugin: 'com.android.application'
 apply plugin: 'jacoco-android'
 
 jacoco {
-  toolVersion = "0.8.4"
+    toolVersion = "0.8.4"
 }
 
 tasks.withType(Test) {
-  jacoco.includeNoLocationClasses = true
+    jacoco.includeNoLocationClasses = true
+    jacoco.excludes = ['jdk.internal.*']
 }
 
 jacocoAndroidUnitTestReport {
-  csv.enabled false
-  html.enabled true
-  xml.enabled false
+    csv.enabled false
+    html.enabled true
+    xml.enabled false
 }
 
 android {
@@ -33,7 +34,7 @@ android {
         targetSdkVersion 29
         applicationId "com.amazonaws.kinesisvideo.webrtc.demoapp"
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled true
     }
@@ -95,12 +96,14 @@ repositories {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+    implementation 'junit:junit:4.12'
 
-    def aws_version = '2.16.5'
-    implementation ("com.amazonaws:aws-android-sdk-kinesisvideo:$aws_version@aar") { transitive = true }
-    implementation ("com.amazonaws:aws-android-sdk-kinesisvideo-signaling:$aws_version@jar") { transitive = true }
-    implementation ("com.amazonaws:aws-android-sdk-mobile-client:$aws_version@aar") { transitive = true }
-    implementation ("com.amazonaws:aws-android-sdk-auth-userpools:$aws_version@aar") { transitive = true }
+    def aws_version = '2.68.0'
+    implementation("com.amazonaws:aws-android-sdk-kinesisvideo:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-kinesisvideo-signaling:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-mobile-client:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-auth-userpools:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-kinesisvideo-webrtcstorage:$aws_version@aar") { transitive = true }
 
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
 
@@ -113,12 +116,12 @@ dependencies {
     implementation 'com.github.tony19:logback-android:2.0.0'
     implementation 'commons-codec:commons-codec:1.9'
 
-    minSdk24Implementation ('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.12'){
-        exclude module : 'javax.inject'
+    minSdk24Implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.20') {
+        exclude module: 'javax.inject'
     }
 
-    minSdk28Implementation ('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.15'){
-        exclude module : 'javax.inject'
+    minSdk28Implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.20') {
+        exclude module: 'javax.inject'
     }
 
     implementation 'org.osgi:org.osgi.framework:1.9.0'

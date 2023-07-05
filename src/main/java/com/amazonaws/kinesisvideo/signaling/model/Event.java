@@ -2,19 +2,31 @@ package com.amazonaws.kinesisvideo.signaling.model;
 
 import android.util.Base64;
 import android.util.Log;
+
+import com.google.common.base.Charsets;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
 import org.webrtc.IceCandidate;
 
+import java.util.Optional;
+
+/**
+ * A class representing the Event object. All response messages are asynchronously delivered
+ * to the recipient as events (for example, an SDP offer or SDP answer delivery).
+ *
+ * @see <a href="https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-7.html">Event</a>
+ */
 public class Event {
 
     private static final String TAG = "Event";
 
-    private String senderClientId;
+    private final String senderClientId;
 
-    private String messageType;
+    private final String messageType;
 
-    private String messagePayload;
+    private final String messagePayload;
 
     private String statusCode;
 
@@ -48,62 +60,97 @@ public class Event {
         return messagePayload;
     }
 
-    public Event() {}
 
-    public Event(String senderClientId, String messageType, String messagePayload) {
+    public Event(final String senderClientId, final String messageType, final String messagePayload) {
         this.senderClientId = senderClientId;
         this.messageType = messageType;
         this.messagePayload = messagePayload;
     }
 
-    public static IceCandidate parseIceCandidate(Event event) {
-
-        byte[] decode = Base64.decode(event.getMessagePayload(), Base64.DEFAULT);
-        String candidateString = new String(decode);
-
-        JsonObject jsonObject = JsonParser.parseString(candidateString).getAsJsonObject();
-
-        String sdpMid = jsonObject.get("sdpMid").toString();
-        if (sdpMid.length() > 2) {
-            sdpMid = sdpMid.substring(1, sdpMid.length() - 1);
-        }
-
-        int sdpMLineIndex = 0;
-        try {
-            sdpMLineIndex = Integer.parseInt(jsonObject.get("sdpMLineIndex").toString());
-        } catch (NumberFormatException e) {
-            Log.e(TAG,  "Invalid sdpMLineIndex");
+    /**
+     * Attempts to convert an {@code ICE_CANDIDATE} {@link Event} into an {@link IceCandidate}.
+     *
+     * @param event the ICE_CANDIDATE event to convert.
+     * @return an {@link IceCandidate} from the {@link Event}. {@code null} if the IceCandidate wasn't
+     * able to be constructed.
+     */
+    public static IceCandidate parseIceCandidate(final Event event) {
+        if (event == null || !"ICE_CANDIDATE".equalsIgnoreCase(event.getMessageType())) {
+            Log.e(TAG, event + " is not an ICE_CANDIDATE type!");
             return null;
         }
 
-        String candidate = jsonObject.get("candidate").toString();
-        if (candidate.length() > 2) {
-            candidate = candidate.substring(1, candidate.length() - 1);
+        final byte[] decode = Base64.decode(event.getMessagePayload(), Base64.DEFAULT);
+        final String candidateString = new String(decode, Charsets.UTF_8);
+
+        if (candidateString.equals("null")) {
+            Log.w(TAG, "Received null IceCandidate!");
+            return null;
         }
 
-        return new IceCandidate(sdpMid, sdpMLineIndex, candidate);
+        final JsonObject jsonObject = JsonParser.parseString(candidateString).getAsJsonObject();
+
+        final String sdpMid = Optional.ofNullable(jsonObject.get("sdpMid"))
+                .map(Object::toString)
+                // Remove quotes
+                .map(sdpMidStr -> sdpMidStr.length() > 2 ? sdpMidStr.substring(1, sdpMidStr.length() - 1) : sdpMidStr)
+                .orElse("");
+
+        int sdpMLineIndex = -1;
+        try {
+            sdpMLineIndex = Integer.parseInt(jsonObject.get("sdpMLineIndex").toString());
+        } catch (final NumberFormatException e) {
+            Log.e(TAG, "Invalid sdpMLineIndex");
+        }
+
+        // Ice Candidate needs one of these two to be present
+        if (sdpMid.isEmpty() && sdpMLineIndex == -1) {
+            return null;
+        }
+
+        final String candidate = Optional.ofNullable(jsonObject.get("candidate"))
+                .map(Object::toString)
+                // Remove quotes
+                .map(candidateStr -> candidateStr.length() > 2 ? candidateStr.substring(1, candidateStr.length() - 1) : candidateStr)
+                .orElse("");
+
+        return new IceCandidate(sdpMid, sdpMLineIndex == -1 ? 0 : sdpMLineIndex, candidate);
     }
 
-    public static String parseSdpEvent(Event answerEvent) {
+    public static String parseSdpEvent(final Event answerEvent) {
 
-        String message = new String(Base64.decode(answerEvent.getMessagePayload().getBytes(), Base64.DEFAULT));
-        JsonObject jsonObject = JsonParser.parseString(message).getAsJsonObject();
-        String type = jsonObject.get("type").toString();
+        final String message = new String(Base64.decode(answerEvent.getMessagePayload().getBytes(), Base64.DEFAULT));
+        final JsonObject jsonObject = JsonParser.parseString(message).getAsJsonObject();
+        final String type = jsonObject.get("type").toString();
 
         if (!type.equalsIgnoreCase("\"answer\"")) {
             Log.e(TAG, "Error in answer message");
         }
 
-        String sdp = jsonObject.get("sdp").getAsString();
-        Log.d(TAG, "SDP answer received from master:" + sdp);
+        final String sdp = jsonObject.get("sdp").getAsString();
+        Log.d(TAG, "SDP answer received from master: " + sdp);
         return sdp;
     }
 
     public static String parseOfferEvent(Event offerEvent) {
-        String s = new String(Base64.decode(offerEvent.getMessagePayload(), Base64.DEFAULT));
+        final String s = new String(Base64.decode(offerEvent.getMessagePayload(), Base64.DEFAULT));
 
-        JsonObject jsonObject = JsonParser.parseString(s).getAsJsonObject();
-        return jsonObject.get("sdp").getAsString();
+        return Optional.of(JsonParser.parseString(s))
+                .filter(JsonElement::isJsonObject)
+                .map(JsonElement::getAsJsonObject)
+                .map(jsonObject -> jsonObject.get("sdp"))
+                .map(JsonElement::getAsString)
+                .orElse("");
     }
 
+    @Override
+    public String toString() {
+        return "Event(" +
+                "senderClientId='" + senderClientId + '\'' +
+                ", messageType='" + messageType + '\'' +
+                ", messagePayload='" + messagePayload + '\'' +
+                ", statusCode='" + statusCode + '\'' +
+                ", body='" + body + '\'' +
+                ')';
+    }
 }

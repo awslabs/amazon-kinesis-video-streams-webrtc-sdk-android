@@ -1,5 +1,8 @@
 package com.amazonaws.kinesisvideo.utils;
 
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.*;
+import static org.junit.Assert.assertEquals;
+
 import com.amazonaws.util.BinaryUtils;
 
 import org.junit.Test;
@@ -8,9 +11,6 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.*;
-import static org.junit.Assert.*;
-
 public class AwsV4SignerTest {
 
 // https://docs.aws.amazon.com/general/latest/gr/signature-v4-test-suite.html#signature-v4-test-suite-example
@@ -18,7 +18,7 @@ public class AwsV4SignerTest {
     @Test
     public void getCanonicalRequestTest() {
 
-        String canonicalResultExpected=
+        String canonicalResultExpected =
                 "GET\n" +
                         "/\n" +
                         "Param1=value1&Param2=value2\n" +
@@ -29,15 +29,14 @@ public class AwsV4SignerTest {
 
         URI uri = URI.create("http://example.amazonaws.com");
 
-        Map<String, String> paramsMap =  new HashMap<String,String>() {{
-            put ("Param1", "value1");
+        Map<String, String> paramsMap = new HashMap<String, String>() {{
+            put("Param1", "value1");
             put("Param2", "value2");
         }};
 
         String canonicalQuerystring = getCanonicalRequest(uri, getCanonicalizedQueryString(paramsMap));
 
-        assertEquals(canonicalResultExpected,canonicalQuerystring);
-
+        assertEquals(canonicalResultExpected, canonicalQuerystring);
     }
 
     @Test

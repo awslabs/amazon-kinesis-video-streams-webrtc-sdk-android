@@ -2,10 +2,11 @@ package com.amazonaws.kinesisvideo.signaling.tyrus;
 
 import android.util.Base64;
 import android.util.Log;
-import com.amazonaws.kinesisvideo.signaling.SignalingListener;
 
+import com.amazonaws.kinesisvideo.signaling.SignalingListener;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.google.gson.Gson;
+
 import org.glassfish.tyrus.client.ClientManager;
 
 import java.util.concurrent.ExecutorService;
@@ -57,7 +58,7 @@ public class SignalingServiceWebSocketClient {
                 if (answer.getAction().equalsIgnoreCase("SDP_ANSWER")) {
 
                     Log.d(TAG, "Answer sent " + new String(Base64.decode(answer.getMessagePayload().getBytes(),
-                            Base64.NO_WRAP | Base64.NO_PADDING | Base64.URL_SAFE)));
+                            Base64.NO_WRAP | Base64.URL_SAFE)));
 
                     send(answer);
                 }
@@ -66,16 +67,12 @@ public class SignalingServiceWebSocketClient {
     }
 
     public void sendIceCandidate(final Message candidate) {
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                if (candidate.getAction().equalsIgnoreCase("ICE_CANDIDATE")) {
-
-                    send(candidate);
-                }
-
-                Log.d(TAG, "Sent Ice candidate message");
+        executorService.submit(() -> {
+            if (candidate.getAction().equalsIgnoreCase("ICE_CANDIDATE")) {
+                send(candidate);
             }
+
+            Log.d(TAG, "Sent Ice candidate message");
         });
     }
 
@@ -87,14 +84,17 @@ public class SignalingServiceWebSocketClient {
             }
         });
         try {
-            executorService.awaitTermination(1, TimeUnit.SECONDS);
+            executorService.shutdown();
+            if (!executorService.awaitTermination(1, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
         } catch (InterruptedException e) {
             Log.e(TAG, "Error in disconnect");
         }
     }
 
     private void send(final Message message) {
-        String jsonMessage = gson.toJson(message);
+        final String jsonMessage = gson.toJson(message);
         Log.d(TAG, "Sending JSON Message= " + jsonMessage);
         websocketClient.send(jsonMessage);
         Log.d(TAG, "Sent JSON Message= " + jsonMessage);
