@@ -926,8 +926,8 @@ public class WebRtcActivity extends AppCompatActivity {
 
         return AwsV4Signer.sign(
                 URI.create(endpoint),
-                secretKey,
                 accessKey,
+                secretKey,
                 sessionToken,
                 URI.create(mWssEndpoint),
                 mRegion);
