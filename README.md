@@ -13,50 +13,11 @@
 
 ### 2. Create a user pool
 
- Setup user pool for secure login using Cognito:
-
- * Go to https://console.aws.amazon.com/cognito/
- * Click `Manage User Pools`
- * Click `Create a user pool`
- * Fill-in `Pool name`
- * Click `Review defaults`
- * Click `Create user pool`
- * Copy `Pool Id`
- * Select `App clients` in the left navigation.
- * Click `Add an app client`
- * Fill-in `App client name`
- * Click `Create app client`
- * Click `Show details` and copy `App client id` and `App client secret`  
+ Follow the instructions [here](https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/producersdk-android-prerequisites.html#set-up-user-pool) to set up an Amazon Cognito user pool for secure login.
 
 ### 3. Create an identity pool
 
- * Go to https://console.aws.amazon.com/cognito/
- * Click `Manage Identity Pools`
- * Click `Create new identity pool`
- * Fill-in `Identity pool name`
- * Under the heading `Authentication providers`, in the `Cognito` tab, fill-in the `User Pool Id` and  `App client id` from the user pools step.
- * Click `Create Pool`
- * There will be details for 2 roles. Look at the one for `authenticated identities` and click `Edit` next to the policy document and your policy should look like this after editing:
-
-```
-    {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-            "Effect": "Allow",
-            "Action": [
-              "cognito-identity:*",
-              "kinesisvideo:*"
-            ],
-            "Resource": [
-              "*"
-            ]
-          }
-        ]
-      }
-```
-* Click `Allow`
-* Copy the `Identity Pool Id` from the code snippets on the screen.  
+ Follow the instructions [here](https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/producersdk-android-prerequisites.html#set-up-identity-pool) to set up an Amazon Cognito identity pool.
 
 ## 4. Build and run the demo application using Android Studio
 
