@@ -39,12 +39,6 @@ android {
         multiDexEnabled true
     }
 
-    sourceSets {
-        main {
-            java.srcDirs = ["src/main/java", "src/test/java"]
-        }
-    }
-
     buildTypes {
         release {
             minifyEnabled false

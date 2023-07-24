@@ -10,9 +10,6 @@ import com.amazonaws.util.BinaryUtils;
 import com.amazonaws.util.DateUtils;
 import com.google.common.collect.ImmutableMap;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -29,8 +26,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 @SuppressWarnings({"SpellCheckingInspection", "SameParameterValue"})
 public class AwsV4Signer {
-
-    private static final Logger logger = LoggerFactory.getLogger(AwsV4Signer.class);
 
     private static final String ALGORITHM_AWS4_HMAC_SHA_256 = "AWS4-HMAC-SHA256";
     private static final String AWS4_REQUEST_TYPE = "aws4_request";
