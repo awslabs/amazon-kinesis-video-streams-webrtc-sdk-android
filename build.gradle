@@ -96,7 +96,7 @@ repositories {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
-//    implementation 'junit:junit:4.12'
+    implementation 'junit:junit:4.12'
 
     def aws_version = '2.68.0'
     implementation("com.amazonaws:aws-android-sdk-kinesisvideo:$aws_version@aar") { transitive = true }
