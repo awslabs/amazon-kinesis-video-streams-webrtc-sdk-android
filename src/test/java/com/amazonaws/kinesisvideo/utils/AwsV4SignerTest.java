@@ -21,12 +21,12 @@ import java.util.Map;
 public class AwsV4SignerTest {
 
     @Test
-    public void signTestMasterWithSessionToken() {
+    public void when_signMasterURLWithTemporaryCredentials_then_returnValidSignedURL() {
         final URI uriToSign = URI.create("wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123");
         final String accessKeyId = "AKIAIOSFODNN7EXAMPLE";
         final String secretKeyId = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
         final String sessionToken = "AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT+FvwqnKwRcOIfrRh3c/LTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE/IvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb/AXlzBBko7b15fjrBs2+cTQtpZ3CYWFXG8C5zqx37wnOE49mRl/+OtkIKGO7fAE";
-        final String region = Regions.US_WEST_2.getName();
+        final String region = "us-west-2";
         final long dateMilli = 1690186022951L;
 
         final URI expected = URI.create("wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20230724%2Fus-west-2%2Fkinesisvideo%2Faws4_request&X-Amz-Date=20230724T080702Z&X-Amz-Expires=299&X-Amz-Security-Token=AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT%2BFvwqnKwRcOIfrRh3c%2FLTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE%2FIvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb%2FAXlzBBko7b15fjrBs2%2BcTQtpZ3CYWFXG8C5zqx37wnOE49mRl%2F%2BOtkIKGO7fAE&X-Amz-SignedHeaders=host&X-Amz-Signature=f8fed632bbe38ac920c7ed2eeaba1a4ba5e2b1bd7aada9f852708112eab76baa");
@@ -36,7 +36,7 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void signTestViewerWithSessionToken() {
+    public void when_signViewerURLWithTemporaryCredentials_then_returnValidSignedURL() {
         final URI uriToSign = URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
         final String accessKeyId = "AKIAIOSFODNN7EXAMPLE";
         final String secretKeyId = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
@@ -51,7 +51,7 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void signTestMasterWithoutSessionToken() {
+    public void when_signMasterURLWithLongTermCredentials_then_returnValidSignedURL() {
         final URI uriToSign = URI.create("wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123");
         final String accessKeyId = "AKIAIOSFODJJ7EXAMPLE";
         final String secretKeyId = "wJalrXUtnFEMI/K7MDENG/bPxQQiCYEXAMPLEKEY";
@@ -66,7 +66,7 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void signTestViewerWithoutSessionToken() {
+    public void when_signViewerURLWithLongTermCredentials_then_returnValidSignedURL() {
         final URI uriToSign = URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
         final String accessKeyId = "AKIAIOSFODJJ7EXAMPLE";
         final String secretKeyId = "wJalrXUtnFEMI/K7MDENG/bPxQQiCYEXAMPLEKEY";
@@ -81,7 +81,7 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void getCanonicalRequestTest() {
+    public void when_getCanonicalRequestWithQueryParameters_then_validCanonicalQueryStringReturned() {
 
         final String canonicalResultExpected =
                 "GET\n" +
@@ -94,9 +94,10 @@ public class AwsV4SignerTest {
 
         final URI uri = URI.create("http://example.amazonaws.com");
 
+        // Add these out of order to ensure that the query parameters are in alphabetical order
         final Map<String, String> paramsMap = new HashMap<String, String>() {{
-            put("Param1", "value1");
             put("Param2", "value2");
+            put("Param1", "value1");
         }};
 
         final String canonicalQuerystring = getCanonicalRequest(uri, getCanonicalizedQueryString(paramsMap));
@@ -105,33 +106,33 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void getCanonicalUriTest() throws URISyntaxException {
-        final String expected = "/";
+    public void getCanonicalUriTest() {
+        final String expectedResource = "/";
 
-        final String actual = getCanonicalUri(new URI("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com"));
+        final String actualResource = getCanonicalUri(URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com"));
 
-        assertEquals(expected, actual);
+        assertEquals(expectedResource, actualResource);
 
-        final String expected2 = "/";
+        final String expectedResource2 = "/";
 
-        final String actual2 = getCanonicalUri(new URI("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/"));
+        final String actualResource2 = getCanonicalUri(URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/"));
 
-        assertEquals(expected2, actual2);
+        assertEquals(expectedResource2, actualResource2);
 
-        final String expected3 = "/hey";
+        final String expectedResource3 = "/hey";
 
-        final String actual3 = getCanonicalUri(new URI("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/hey"));
+        final String actualResource3 = getCanonicalUri(URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/hey"));
 
-        assertEquals(expected3, actual3);
+        assertEquals(expectedResource3, actualResource3);
     }
 
     @Test
-    public void buildQueryParamsMapTestNoSessionToken() throws URISyntaxException {
+    public void when_buildQueryParamsMapWithLongTermCredentials_then_mapContainsCorrectParametersAndDoesNotContainXAmzSecurityToken() {
         // This URI has two query parameters that we expect to get added to the map: X-Amz-ChannelARN
         // We also expect the query parameter values to be url encoded.
-        final URI testUri = new URI("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123");
+        final URI testUri = URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123");
         final String testAccessKeyId = "AKIDEXAMPLE";
-        final String testSessionToken = null;
+        final String testSessionToken = null; // since session token is not provided, we expect X-Amz-Security-Token to not be present in the map
         final String testRegion = "us-west-2";
         final String testTimestamp = "20230724T000000Z";
         final String testDatestamp = "20230724";
@@ -155,10 +156,10 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void buildQueryParamsMapTestFull() throws URISyntaxException {
+    public void when_buildQueryParamsMapWithTemporaryCredentials_then_mapContainsCorrectParameters() {
         // This URI has two query parameters that we expect to get added to the map: X-Amz-ChannelARN and X-Amz-ClientId
         // We also expect the query parameter values to be url encoded.
-        final URI testUri = new URI("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
+        final URI testUri = URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
         final String testAccessKeyId = "AKIDEXAMPLE";
         final String testSessionToken = "SSEXAMPLE";
         final String testRegion = "us-west-2";
@@ -186,7 +187,7 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void signStringTest() {
+    public void when_signStringWithExampleInputs_then_validStringToSignIsReturned() {
 
         final String credentialScope = "AKIDEXAMPLE/20150830/us-east-1/service/aws4_request";
         final String requestDate = "20150830T123600Z";
@@ -199,17 +200,19 @@ public class AwsV4SignerTest {
                 "host;x-amz-date\n" +
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-        final String result = "AWS4-HMAC-SHA256\n" +
+        final String expected = "AWS4-HMAC-SHA256\n" +
                 "20150830T123600Z\n" +
                 "AKIDEXAMPLE/20150830/us-east-1/service/aws4_request\n" +
                 "816cd5b414d056048ba4f7c5386d6e0533120fb1fcfa93762cf0fc39e2cf19e0";
 
-        assertEquals(signString(requestDate, credentialScope, canonicalRequest), result);
+        final String actual = signString(requestDate, credentialScope, canonicalRequest);
+
+        assertEquals(expected, actual);
 
     }
 
     @Test
-    public void getSignatureKeyTest() {
+    public void when_getSignatureKeyWithStringToSign_then_validSignatureKeyReturned() {
 
         final String stringToSign = "AWS4-HMAC-SHA256\n" +
                 "20150830T123600Z\n" +
@@ -228,7 +231,7 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void urlEncodeTest() {
+    public void when_urlEncodeStringWithSpecialCharacters_then_specialCharactersAreURLEncoded() {
         final String exampleArn = "arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123";
 
         final String expected = "arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123";
@@ -239,12 +242,12 @@ public class AwsV4SignerTest {
     }
 
     @Test(expected = RuntimeException.class)
-    public void badUrlEncodeTest() {
+    public void when_urlEncodeGivenNull_then_exceptionIsThrown() {
         urlEncode(null);
     }
 
     @Test
-    public void createCredentialScopeTest() {
+    public void when_createCredentialScope_then_validCredentialScopeReturned() {
         final String expected = "20150930/us-west-2/kinesisvideo/aws4_request";
 
         final String actual = createCredentialScope("us-west-2", "20150930");
@@ -253,7 +256,7 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void hmacSha256Test() {
+    public void when_hmacSha256GivenKeyAndData_then_correctSignatureIsReturned() {
         byte[] testKey = "testKey".getBytes(UTF_8);
 
         final String testData = "testData123";
@@ -268,33 +271,31 @@ public class AwsV4SignerTest {
     }
 
     @Test(expected = RuntimeException.class)
-    public void badHmacSha256Test() {
+    public void when_HmacSha256GivenNulls_then_exceptionThrown() {
         hmacSha256(null, null);
     }
 
     @Test
-    public void getTimestampTest() {
-        // 1689984000000 = Saturday, July 22, 2023 12:00:00.000 AM
+    public void when_getTimeStampAroundMidnightUTC_then_dateAndTimeReturnedIsCorrectAndFormattedCorrectly() {
+        // 1689984000000 = Saturday, July 22, 2023 12:00:00.000 AM (UTC)
         final String atMidnightUTC = getTimeStamp(1689984000000L);
 
         assertEquals("20230722T000000Z", atMidnightUTC);
 
-        // 1689983999999 = Friday, July 21, 2023 11:59:59.999 AM
+        // 1689983999999 = Friday, July 21, 2023 11:59:59.999 AM (UTC)
         final String rightBeforeMidnightUTC = getTimeStamp(1689983999999L);
 
         assertEquals("20230721T235959Z", rightBeforeMidnightUTC);
-
-        System.out.println(sha256().hashString(EMPTY, UTF_8).toString());
     }
 
     @Test
-    public void getDateStampTest() {
-        // 1689984000000 = Saturday, July 22, 2023 12:00:00.000 AM
+    public void when_getDateStampAroundMidnightUTC_then_dateReturnedIsCorrectAndFormattedCorrectly() {
+        // 1689984000000 = Saturday, July 22, 2023 12:00:00.000 AM (UTC)
         final String atMidnightUTC = getDateStamp(1689984000000L);
 
         assertEquals("20230722", atMidnightUTC);
 
-        // 1689983999999 = Friday, July 21, 2023 11:59:59.999 AM
+        // 1689983999999 = Friday, July 21, 2023 11:59:59.999 AM (UTC)
         final String rightBeforeMidnightUTC = getDateStamp(1689983999999L);
 
         assertEquals("20230721", rightBeforeMidnightUTC);

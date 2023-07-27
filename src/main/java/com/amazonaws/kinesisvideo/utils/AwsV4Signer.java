@@ -48,7 +48,7 @@ public class AwsV4Signer {
     // Implementation based on https://docs.aws.amazon.com/general/latest/gr/sigv4-signed-request-examples.html#sig-v4-examples-get-query-string
 
     /**
-     * Constructs a presigned websocket URL to connect to Kinesis Video Signaling.
+     * Constructs a WebRTC WebSocket connect URI with Query Parameters to connect to Kinesis Video Signaling.
      *
      * @param uri          The URL to sign.
      *                     <p>
