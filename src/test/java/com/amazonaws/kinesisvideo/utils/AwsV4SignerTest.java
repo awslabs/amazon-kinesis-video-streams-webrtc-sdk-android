@@ -1,17 +1,17 @@
 package com.amazonaws.kinesisvideo.utils;
 
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.ALGORITHM_AWS4_HMAC_SHA_256;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.AWS4_REQUEST_TYPE;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.METHOD;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.SERVICE;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.SIGNED_HEADERS;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_ALGORITHM;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_CREDENTIAL;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_DATE;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_EXPIRES;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_SECURITY_TOKEN;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_SIGNATURE;
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_SIGNED_HEADERS;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.ALGORITHM_AWS4_HMAC_SHA_256;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.AWS4_REQUEST_TYPE;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.METHOD;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.SERVICE;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.SIGNED_HEADERS;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.X_AMZ_ALGORITHM;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.X_AMZ_CREDENTIAL;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.X_AMZ_DATE;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.X_AMZ_EXPIRES;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.X_AMZ_SECURITY_TOKEN;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.X_AMZ_SIGNATURE;
+import static com.amazonaws.kinesisvideo.utils.AwsV4SignerConstants.X_AMZ_SIGNED_HEADERS;
 import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.buildQueryParamsMap;
 import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.createCredentialScope;
 import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.getCanonicalRequest;
@@ -98,7 +98,7 @@ public class AwsV4SignerTest {
         final String region = "us-west-2";
         final long dateMilli = 1690186022208L;
 
-        final URI expected = URI.create(viewerURIToSignProtocolAndHost + "/?" + X_AMZ_ALGORITHM + "=" + ALGORITHM_AWS4_HMAC_SHA_256 + "&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557&" + X_AMZ_CREDENTIAL + "=" + accessKeyId + "%2F20230724%2F" + region + "%2F" + SERVICE + "%2" + AWS4_REQUEST_TYPE + "&" + X_AMZ_DATE + "=20230724T080702Z&" + X_AMZ_EXPIRES + "=299&" + X_AMZ_SIGNED_HEADERS + "=" + SIGNED_HEADERS + "&" + X_AMZ_SIGNATURE + "=cea541f699dc51bc53a55590ce817e63cc06fac2bdef4696b63e0889eb448f0b");
+        final URI expected = URI.create(viewerURIToSignProtocolAndHost + "/?" + X_AMZ_ALGORITHM + "=" + ALGORITHM_AWS4_HMAC_SHA_256 + "&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557&" + X_AMZ_CREDENTIAL + "=" + accessKeyId + "%2F20230724%2F" + region + "%2F" + SERVICE + "%2F" + AWS4_REQUEST_TYPE + "&" + X_AMZ_DATE + "=20230724T080702Z&" + X_AMZ_EXPIRES + "=299&" + X_AMZ_SIGNED_HEADERS + "=" + SIGNED_HEADERS + "&" + X_AMZ_SIGNATURE + "=cea541f699dc51bc53a55590ce817e63cc06fac2bdef4696b63e0889eb448f0b");
         final URI actual = sign(uriToSign, accessKeyId, secretKeyId, sessionToken, region, dateMilli);
 
         assertEquals(expected, actual);
