@@ -27,22 +27,22 @@ import javax.crypto.spec.SecretKeySpec;
 @SuppressWarnings({"SpellCheckingInspection", "SameParameterValue"})
 public class AwsV4Signer {
 
-    private static final String ALGORITHM_AWS4_HMAC_SHA_256 = "AWS4-HMAC-SHA256";
-    private static final String AWS4_REQUEST_TYPE = "aws4_request";
-    private static final String SERVICE = "kinesisvideo";
-    private static final String X_AMZ_ALGORITHM = "X-Amz-Algorithm";
-    private static final String X_AMZ_CREDENTIAL = "X-Amz-Credential";
-    private static final String X_AMZ_DATE = "X-Amz-Date";
-    private static final String X_AMZ_EXPIRES = "X-Amz-Expires";
-    private static final String X_AMZ_SECURITY_TOKEN = "X-Amz-Security-Token";
-    private static final String X_AMZ_SIGNATURE = "X-Amz-Signature";
-    private static final String X_AMZ_SIGNED_HEADERS = "X-Amz-SignedHeaders";
-    private static final String NEW_LINE_DELIMITER = "\n";
-    private static final String DATE_PATTERN = "yyyyMMdd";
-    private static final String TIME_PATTERN = "yyyyMMdd'T'HHmmss'Z'";
+    static final String ALGORITHM_AWS4_HMAC_SHA_256 = "AWS4-HMAC-SHA256";
+    static final String AWS4_REQUEST_TYPE = "aws4_request";
+    static final String SERVICE = "kinesisvideo";
+    static final String X_AMZ_ALGORITHM = "X-Amz-Algorithm";
+    static final String X_AMZ_CREDENTIAL = "X-Amz-Credential";
+    static final String X_AMZ_DATE = "X-Amz-Date";
+    static final String X_AMZ_EXPIRES = "X-Amz-Expires";
+    static final String X_AMZ_SECURITY_TOKEN = "X-Amz-Security-Token";
+    static final String X_AMZ_SIGNATURE = "X-Amz-Signature";
+    static final String X_AMZ_SIGNED_HEADERS = "X-Amz-SignedHeaders";
+    static final String NEW_LINE_DELIMITER = "\n";
+    static final String DATE_PATTERN = "yyyyMMdd";
+    static final String TIME_PATTERN = "yyyyMMdd'T'HHmmss'Z'";
 
-    private static final String METHOD = "GET";
-    private static final String SIGNED_HEADERS = "host";
+    static final String METHOD = "GET";
+    static final String SIGNED_HEADERS = "host";
 
     // Guide - https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
     // Implementation based on https://docs.aws.amazon.com/general/latest/gr/sigv4-signed-request-examples.html#sig-v4-examples-get-query-string
@@ -223,7 +223,7 @@ public class AwsV4Signer {
      *     <li>{@code Canonical URI + "\n"} - Resource. In our case, it's always "/".</li>
      *     <li>{@code Canonical Query String + "\n"} - Sorted list of query parameters (and their values), excluding X-Amz-Signature. In our case: X-Amz-Algorithm, X-Amz-ChannelARN, X-Amz-ClientId (if viewer), X-Amz-Credential, X-Amz-Date, X-Amz-Expires.</li>
      *     <li>{@code Canonical Headers + "\n"} - In our case, we only have the required HTTP {@code host} header.</li>
-     *     <li>{@code Signed Headers + "\n"} - We have none.</li>
+     *     <li>{@code Signed Headers + "\n"} - Which headers, from the canonical headers, in alphabetical order.</li>
      *     <li>{@code Hashed Payload} - In our case, it's always the SHA-256 checksum of an empty string.</li>
      * </ol>
      *

@@ -1,19 +1,38 @@
 package com.amazonaws.kinesisvideo.utils;
 
-import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.*;
-import static com.google.common.hash.Hashing.sha256;
-import static org.apache.commons.lang3.StringUtils.EMPTY;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.ALGORITHM_AWS4_HMAC_SHA_256;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.AWS4_REQUEST_TYPE;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.METHOD;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.SERVICE;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.SIGNED_HEADERS;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_ALGORITHM;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_CREDENTIAL;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_DATE;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_EXPIRES;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_SECURITY_TOKEN;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_SIGNATURE;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.X_AMZ_SIGNED_HEADERS;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.buildQueryParamsMap;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.createCredentialScope;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.getCanonicalRequest;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.getCanonicalUri;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.getCanonicalizedQueryString;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.getDateStamp;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.getSignatureKey;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.getTimeStamp;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.hmacSha256;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.sign;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.signString;
+import static com.amazonaws.kinesisvideo.utils.AwsV4Signer.urlEncode;
 import static org.junit.Assert.assertEquals;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.amazonaws.regions.Regions;
 import com.amazonaws.util.BinaryUtils;
 
 import org.junit.Test;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,14 +41,15 @@ public class AwsV4SignerTest {
 
     @Test
     public void when_signMasterURLWithTemporaryCredentials_then_returnValidSignedURL() {
-        final URI uriToSign = URI.create("wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123");
+        final String masterURIToSignProtocolAndHost = "wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com";
+        final URI uriToSign = URI.create(masterURIToSignProtocolAndHost + "?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123");
         final String accessKeyId = "AKIAIOSFODNN7EXAMPLE";
         final String secretKeyId = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
         final String sessionToken = "AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT+FvwqnKwRcOIfrRh3c/LTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE/IvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb/AXlzBBko7b15fjrBs2+cTQtpZ3CYWFXG8C5zqx37wnOE49mRl/+OtkIKGO7fAE";
         final String region = "us-west-2";
         final long dateMilli = 1690186022951L;
 
-        final URI expected = URI.create("wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20230724%2Fus-west-2%2Fkinesisvideo%2Faws4_request&X-Amz-Date=20230724T080702Z&X-Amz-Expires=299&X-Amz-Security-Token=AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT%2BFvwqnKwRcOIfrRh3c%2FLTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE%2FIvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb%2FAXlzBBko7b15fjrBs2%2BcTQtpZ3CYWFXG8C5zqx37wnOE49mRl%2F%2BOtkIKGO7fAE&X-Amz-SignedHeaders=host&X-Amz-Signature=f8fed632bbe38ac920c7ed2eeaba1a4ba5e2b1bd7aada9f852708112eab76baa");
+        final URI expected = URI.create(masterURIToSignProtocolAndHost + "/?" + X_AMZ_ALGORITHM + "=" + ALGORITHM_AWS4_HMAC_SHA_256 + "&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&" + X_AMZ_CREDENTIAL + "=AKIAIOSFODNN7EXAMPLE%2F20230724%2F" + region + "%2F" + SERVICE + "%2F" + AWS4_REQUEST_TYPE + "&" + X_AMZ_DATE + "=20230724T080702Z&" + X_AMZ_EXPIRES + "=299&" + X_AMZ_SECURITY_TOKEN + "=AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT%2BFvwqnKwRcOIfrRh3c%2FLTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE%2FIvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb%2FAXlzBBko7b15fjrBs2%2BcTQtpZ3CYWFXG8C5zqx37wnOE49mRl%2F%2BOtkIKGO7fAE&" + X_AMZ_SIGNED_HEADERS + "=" + SIGNED_HEADERS + "&" + X_AMZ_SIGNATURE + "=f8fed632bbe38ac920c7ed2eeaba1a4ba5e2b1bd7aada9f852708112eab76baa");
         final URI actual = sign(uriToSign, accessKeyId, secretKeyId, sessionToken, region, dateMilli);
 
         assertEquals(expected, actual);
@@ -37,14 +57,16 @@ public class AwsV4SignerTest {
 
     @Test
     public void when_signViewerURLWithTemporaryCredentials_then_returnValidSignedURL() {
-        final URI uriToSign = URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
+        final String viewerURIToSignProtocolAndHost = "wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com";
+        final URI uriToSign = URI.create(viewerURIToSignProtocolAndHost + "?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
+
         final String accessKeyId = "AKIAIOSFODNN7EXAMPLE";
         final String secretKeyId = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
         final String sessionToken = "AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT+FvwqnKwRcOIfrRh3c/LTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE/IvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb/AXlzBBko7b15fjrBs2+cTQtpZ3CYWFXG8C5zqx37wnOE49mRl/+OtkIKGO7fAE";
-        final String region = Regions.US_WEST_2.getName();
+        final String region = "us-west-2";
         final long dateMilli = 1690186022958L;
 
-        final URI expected = URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20230724%2Fus-west-2%2Fkinesisvideo%2Faws4_request&X-Amz-Date=20230724T080702Z&X-Amz-Expires=299&X-Amz-Security-Token=AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT%2BFvwqnKwRcOIfrRh3c%2FLTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE%2FIvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb%2FAXlzBBko7b15fjrBs2%2BcTQtpZ3CYWFXG8C5zqx37wnOE49mRl%2F%2BOtkIKGO7fAE&X-Amz-SignedHeaders=host&X-Amz-Signature=77ea5ff8ede2e22aa268a3a068f1ad3a5d92f0fa8a427579f9e6376e97139761");
+        final URI expected = URI.create(viewerURIToSignProtocolAndHost + "/?" + X_AMZ_ALGORITHM + "=" + ALGORITHM_AWS4_HMAC_SHA_256 + "&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557&" + X_AMZ_CREDENTIAL + "=" + accessKeyId + "%2F20230724%2F" + region + "%2F" + SERVICE + "%2F" + AWS4_REQUEST_TYPE + "&" + X_AMZ_DATE + "=20230724T080702Z&" + X_AMZ_EXPIRES + "=299&" + X_AMZ_SECURITY_TOKEN + "=AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT%2BFvwqnKwRcOIfrRh3c%2FLTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE%2FIvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb%2FAXlzBBko7b15fjrBs2%2BcTQtpZ3CYWFXG8C5zqx37wnOE49mRl%2F%2BOtkIKGO7fAE&" + X_AMZ_SIGNED_HEADERS + "=" + SIGNED_HEADERS + "&" + X_AMZ_SIGNATURE + "=77ea5ff8ede2e22aa268a3a068f1ad3a5d92f0fa8a427579f9e6376e97139761");
         final URI actual = sign(uriToSign, accessKeyId, secretKeyId, sessionToken, region, dateMilli);
 
         assertEquals(expected, actual);
@@ -52,14 +74,15 @@ public class AwsV4SignerTest {
 
     @Test
     public void when_signMasterURLWithLongTermCredentials_then_returnValidSignedURL() {
-        final URI uriToSign = URI.create("wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123");
+        final String masterURIToSignProtocolAndHost = "wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com";
+        final URI uriToSign = URI.create(masterURIToSignProtocolAndHost + "?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123");
         final String accessKeyId = "AKIAIOSFODJJ7EXAMPLE";
         final String secretKeyId = "wJalrXUtnFEMI/K7MDENG/bPxQQiCYEXAMPLEKEY";
         final String sessionToken = null;
-        final String region = Regions.US_WEST_2.getName();
+        final String region = "us-west-2";
         final long dateMilli = 1690186022101L;
 
-        final URI expected = URI.create("wss://m-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-Credential=AKIAIOSFODJJ7EXAMPLE%2F20230724%2Fus-west-2%2Fkinesisvideo%2Faws4_request&X-Amz-Date=20230724T080702Z&X-Amz-Expires=299&X-Amz-SignedHeaders=host&X-Amz-Signature=0bbef329f0d9d3e68635f7b844ac684c7764a0c228ca013232d935c111b9a370");
+        final URI expected = URI.create(masterURIToSignProtocolAndHost + "/?" + X_AMZ_ALGORITHM + "=" + ALGORITHM_AWS4_HMAC_SHA_256 + "&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&" + X_AMZ_CREDENTIAL + "=" + accessKeyId + "%2F20230724%2F" + region + "%2F" + SERVICE + "%2F" + AWS4_REQUEST_TYPE + "&" + X_AMZ_DATE + "=20230724T080702Z&" + X_AMZ_EXPIRES + "=299&" + X_AMZ_SIGNED_HEADERS + "=" + SIGNED_HEADERS + "&" + X_AMZ_SIGNATURE + "=0bbef329f0d9d3e68635f7b844ac684c7764a0c228ca013232d935c111b9a370");
         final URI actual = sign(uriToSign, accessKeyId, secretKeyId, sessionToken, region, dateMilli);
 
         assertEquals(expected, actual);
@@ -67,14 +90,15 @@ public class AwsV4SignerTest {
 
     @Test
     public void when_signViewerURLWithLongTermCredentials_then_returnValidSignedURL() {
-        final URI uriToSign = URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
+        final String viewerURIToSignProtocolAndHost = "wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com";
+        final URI uriToSign = URI.create(viewerURIToSignProtocolAndHost + "?X-Amz-ChannelARN=arn:aws:kinesisvideo:us-west-2:123456789012:channel/demo-channel/1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
         final String accessKeyId = "AKIAIOSFODJJ7EXAMPLE";
         final String secretKeyId = "wJalrXUtnFEMI/K7MDENG/bPxQQiCYEXAMPLEKEY";
         final String sessionToken = "";
-        final String region = Regions.US_WEST_2.getName();
+        final String region = "us-west-2";
         final long dateMilli = 1690186022208L;
 
-        final URI expected = URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557&X-Amz-Credential=AKIAIOSFODJJ7EXAMPLE%2F20230724%2Fus-west-2%2Fkinesisvideo%2Faws4_request&X-Amz-Date=20230724T080702Z&X-Amz-Expires=299&X-Amz-SignedHeaders=host&X-Amz-Signature=cea541f699dc51bc53a55590ce817e63cc06fac2bdef4696b63e0889eb448f0b");
+        final URI expected = URI.create(viewerURIToSignProtocolAndHost + "/?" + X_AMZ_ALGORITHM + "=" + ALGORITHM_AWS4_HMAC_SHA_256 + "&X-Amz-ChannelARN=arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123&X-Amz-ClientId=d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557&" + X_AMZ_CREDENTIAL + "=" + accessKeyId + "%2F20230724%2F" + region + "%2F" + SERVICE + "%2" + AWS4_REQUEST_TYPE + "&" + X_AMZ_DATE + "=20230724T080702Z&" + X_AMZ_EXPIRES + "=299&" + X_AMZ_SIGNED_HEADERS + "=" + SIGNED_HEADERS + "&" + X_AMZ_SIGNATURE + "=cea541f699dc51bc53a55590ce817e63cc06fac2bdef4696b63e0889eb448f0b");
         final URI actual = sign(uriToSign, accessKeyId, secretKeyId, sessionToken, region, dateMilli);
 
         assertEquals(expected, actual);
@@ -84,12 +108,12 @@ public class AwsV4SignerTest {
     public void when_getCanonicalRequestWithQueryParameters_then_validCanonicalQueryStringReturned() {
 
         final String canonicalResultExpected =
-                "GET\n" +
+                METHOD + "\n" +
                         "/\n" +
                         "Param1=value1&Param2=value2\n" +
                         "host:example.amazonaws.com\n" +
                         "\n" +
-                        "host\n" +
+                        SIGNED_HEADERS + "\n" +
                         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
         final URI uri = URI.create("http://example.amazonaws.com");
@@ -138,11 +162,11 @@ public class AwsV4SignerTest {
         final String testDatestamp = "20230724";
 
         final Map<String, String> expectedQueryParams = new HashMap<>();
-        expectedQueryParams.put("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
-        expectedQueryParams.put("X-Amz-Credential", "AKIDEXAMPLE%2F" + testDatestamp + "%2F" + testRegion + "%2Fkinesisvideo%2Faws4_request");
-        expectedQueryParams.put("X-Amz-Date", testTimestamp);
-        expectedQueryParams.put("X-Amz-Expires", "299");
-        expectedQueryParams.put("X-Amz-SignedHeaders", "host");
+        expectedQueryParams.put(X_AMZ_ALGORITHM, ALGORITHM_AWS4_HMAC_SHA_256);
+        expectedQueryParams.put(X_AMZ_CREDENTIAL, testAccessKeyId + "%2F" + testDatestamp + "%2F" + testRegion + "%2F" + SERVICE + "%2F" + AWS4_REQUEST_TYPE);
+        expectedQueryParams.put(X_AMZ_DATE, testTimestamp);
+        expectedQueryParams.put(X_AMZ_EXPIRES, "299");
+        expectedQueryParams.put(X_AMZ_SIGNED_HEADERS, SIGNED_HEADERS);
         expectedQueryParams.put("X-Amz-ChannelARN", "arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123");
 
         final Map<String, String> actualQueryParams = buildQueryParamsMap(testUri,
@@ -167,12 +191,12 @@ public class AwsV4SignerTest {
         final String testDatestamp = "20230724";
 
         final Map<String, String> expectedQueryParams = new HashMap<>();
-        expectedQueryParams.put("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
-        expectedQueryParams.put("X-Amz-Credential", "AKIDEXAMPLE%2F" + testDatestamp + "%2F" + testRegion + "%2Fkinesisvideo%2Faws4_request");
-        expectedQueryParams.put("X-Amz-Date", testTimestamp);
-        expectedQueryParams.put("X-Amz-Expires", "299");
-        expectedQueryParams.put("X-Amz-SignedHeaders", "host");
-        expectedQueryParams.put("X-Amz-Security-Token", "SSEXAMPLE");
+        expectedQueryParams.put(X_AMZ_ALGORITHM, ALGORITHM_AWS4_HMAC_SHA_256);
+        expectedQueryParams.put(X_AMZ_CREDENTIAL, "AKIDEXAMPLE%2F" + testDatestamp + "%2F" + testRegion + "%2F" + SERVICE + "%2F" + AWS4_REQUEST_TYPE);
+        expectedQueryParams.put(X_AMZ_DATE, testTimestamp);
+        expectedQueryParams.put(X_AMZ_EXPIRES, "299");
+        expectedQueryParams.put(X_AMZ_SIGNED_HEADERS, SIGNED_HEADERS);
+        expectedQueryParams.put(X_AMZ_SECURITY_TOKEN, "SSEXAMPLE");
         expectedQueryParams.put("X-Amz-ChannelARN", "arn%3Aaws%3Akinesisvideo%3Aus-west-2%3A123456789012%3Achannel%2Fdemo-channel%2F1234567890123");
         expectedQueryParams.put("X-Amz-ClientId", "d7d1c6e2-9cb0-4d61-bea9-ecb3d3816557");
 
@@ -191,18 +215,18 @@ public class AwsV4SignerTest {
 
         final String credentialScope = "AKIDEXAMPLE/20150830/us-east-1/service/aws4_request";
         final String requestDate = "20150830T123600Z";
-        final String canonicalRequest = "GET\n" +
+        final String canonicalRequest = METHOD + "\n" +
                 "/\n" +
                 "Param1=value1&Param2=value2\n" +
                 "host:example.amazonaws.com\n" +
                 "x-amz-date:20150830T123600Z\n" +
                 "\n" +
-                "host;x-amz-date\n" +
+                SIGNED_HEADERS + ";x-amz-date\n" +
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
         final String expected = "AWS4-HMAC-SHA256\n" +
                 "20150830T123600Z\n" +
-                "AKIDEXAMPLE/20150830/us-east-1/service/aws4_request\n" +
+                "AKIDEXAMPLE/20150830/us-east-1/service/" + AWS4_REQUEST_TYPE + "\n" +
                 "816cd5b414d056048ba4f7c5386d6e0533120fb1fcfa93762cf0fc39e2cf19e0";
 
         final String actual = signString(requestDate, credentialScope, canonicalRequest);
@@ -214,9 +238,9 @@ public class AwsV4SignerTest {
     @Test
     public void when_getSignatureKeyWithStringToSign_then_validSignatureKeyReturned() {
 
-        final String stringToSign = "AWS4-HMAC-SHA256\n" +
+        final String stringToSign = ALGORITHM_AWS4_HMAC_SHA_256 + "\n" +
                 "20150830T123600Z\n" +
-                "20150830/us-east-1/iam/aws4_request\n" +
+                "20150830/us-east-1/iam/" + AWS4_REQUEST_TYPE + "\n" +
                 "f536975d06c0309214f805bb90ccff089219ecd68b2577efef23edd43b7e1a59";
 
         final byte[] signatureKeyBytes = getSignatureKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
@@ -248,7 +272,7 @@ public class AwsV4SignerTest {
 
     @Test
     public void when_createCredentialScope_then_validCredentialScopeReturned() {
-        final String expected = "20150930/us-west-2/kinesisvideo/aws4_request";
+        final String expected = "20150930/us-west-2/" + SERVICE + "/" + AWS4_REQUEST_TYPE;
 
         final String actual = createCredentialScope("us-west-2", "20150930");
 
