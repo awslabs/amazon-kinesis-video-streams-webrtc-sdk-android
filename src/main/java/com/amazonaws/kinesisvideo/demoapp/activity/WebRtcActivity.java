@@ -89,6 +89,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -930,7 +931,8 @@ public class WebRtcActivity extends AppCompatActivity {
                 secretKey,
                 sessionToken,
                 URI.create(mWssEndpoint),
-                mRegion);
+                mRegion,
+                new Date().getTime());
     }
 
     @SuppressLint("ClickableViewAccessibility")
