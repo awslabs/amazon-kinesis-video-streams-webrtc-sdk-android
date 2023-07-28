@@ -126,7 +126,7 @@ public class AwsV4Signer {
      * @param region       AWS region. Example: us-west-2.
      * @param amzDate      The result of {@link #getTimeStamp(long)}.
      * @param datestamp    The result of {@link #getDateStamp(long)}.
-     * @return
+     * @return Map of the query parameters to be included.
      * @see <a href="https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html">Authenticating Requests: Using Query Parameters (AWS Signature Version 4)</a>
      */
     static Map<String, String> buildQueryParamsMap(final URI uri,
