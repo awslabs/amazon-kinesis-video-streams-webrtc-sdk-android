@@ -130,7 +130,7 @@ public class AwsV4SignerTest {
     }
 
     @Test
-    public void getCanonicalUriTest() {
+    public void when_getCanonicalUriWithVariousResources_then_correctResourceReturned() {
         final String expectedResource = "/";
 
         final String actualResource = getCanonicalUri(URI.create("wss://v-a1b2c3d4.kinesisvideo.us-west-2.amazonaws.com"));
