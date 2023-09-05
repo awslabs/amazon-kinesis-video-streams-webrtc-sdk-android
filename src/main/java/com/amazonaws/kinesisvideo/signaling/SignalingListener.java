@@ -38,7 +38,7 @@ public abstract class SignalingListener implements Signaling {
             switch (evt.getMessageType().toUpperCase()) {
                 case "SDP_OFFER":
                     Log.d(TAG, "Offer received: SenderClientId=" + evt.getSenderClientId());
-                    Log.d(TAG, new String(Base64.decode(evt.getMessagePayload(), 0)));
+                    Log.d(TAG, new String(Base64.decode(evt.getMessagePayload(), Base64.DEFAULT)));
 
                     onSdpOffer(evt);
                     break;
@@ -49,7 +49,7 @@ public abstract class SignalingListener implements Signaling {
                     break;
                 case "ICE_CANDIDATE":
                     Log.d(TAG, "Ice Candidate received: SenderClientId=" + evt.getSenderClientId());
-                    Log.d(TAG, new String(Base64.decode(evt.getMessagePayload(), 0)));
+                    Log.d(TAG, new String(Base64.decode(evt.getMessagePayload(), Base64.DEFAULT)));
 
                     onIceCandidate(evt);
                     break;
