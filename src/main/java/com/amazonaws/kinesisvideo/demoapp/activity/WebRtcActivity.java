@@ -11,8 +11,12 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_REGION;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_SEND_AUDIO;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_STREAM_ARN;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_USE_STUN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
+import static com.amazonaws.kinesisvideo.utils.Constants.EXPONENTIAL_BACKOFF_CAP_MILLISECONDS;
+import static com.amazonaws.kinesisvideo.utils.Constants.LOG_STATS_INTERVAL_SECONDS;
+import static com.amazonaws.kinesisvideo.utils.Constants.WEBSOCKET_MESSAGE_DELIVERY_TIMEOUT_MILLISECONDS;
 
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
@@ -40,6 +44,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
@@ -54,6 +61,7 @@ import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideowebrtcstorage.AWSKinesisVideoWebRTCStorageClient;
+import com.amazonaws.services.kinesisvideowebrtcstorage.model.ClientLimitExceededException;
 import com.amazonaws.services.kinesisvideowebrtcstorage.model.JoinStorageSessionRequest;
 import com.google.common.base.Strings;
 
@@ -84,7 +92,9 @@ import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
+import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -97,9 +107,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
@@ -114,7 +130,11 @@ public class WebRtcActivity extends AppCompatActivity {
     private static final boolean ENABLE_H264_HIGH_PROFILE = true;
 
     private static volatile SignalingServiceWebSocketClient client;
+    private AWSKinesisVideoWebRTCStorageClient storageClient;
+    private final AtomicInteger runIdentifier = new AtomicInteger();
+    private final Queue<Long> joinStorageSessionFailureDates = new ConcurrentLinkedQueue<>(); // Holds epoch milliseconds of joinStorageSession failures
     private PeerConnectionFactory peerConnectionFactory;
+    private ScheduledFuture<?> printStatsTask;
 
     private VideoSource videoSource;
     private VideoTrack localVideoTrack;
@@ -129,6 +149,7 @@ public class WebRtcActivity extends AppCompatActivity {
     private SurfaceViewRenderer remoteView;
 
     private PeerConnection localPeer;
+    private final ReentrantLock localPeerLock = new ReentrantLock(true);
 
     private EglBase rootEglBase = null;
     private VideoCapturer videoCapturer;
@@ -136,6 +157,9 @@ public class WebRtcActivity extends AppCompatActivity {
     private final List<IceServer> peerIceServers = new ArrayList<>();
 
     private boolean gotException = false;
+    private final AtomicBoolean sdpOfferReceived = new AtomicBoolean(false);
+
+    private SignalingListener signalingListener;
 
     private String recipientClientId;
 
@@ -185,7 +209,7 @@ public class WebRtcActivity extends AppCompatActivity {
         final String masterEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn;
 
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
-        final String viewerEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM+ "=" + mClientId;
+        final String viewerEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
 
         runOnUiThread(() -> mCreds = KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
 
@@ -206,26 +230,49 @@ public class WebRtcActivity extends AppCompatActivity {
         }
 
         final String wsHost = signedUri.toString();
+        if (wsHost == null) {
+            gotException = true;
+            return;
+        }
 
         // Step 10. Create Signaling Client Event Listeners.
         //          When we receive messages, we need to take the appropriate action.
-        final SignalingListener signalingListener = new SignalingListener() {
+        signalingListener = new SignalingListener() {
 
             @Override
-            public void onSdpOffer(final Event offerEvent) {
-                Log.d(TAG, "Received SDP Offer: Setting Remote Description ");
+            public synchronized void onSdpOffer(final Event offerEvent) {
+                Log.d(TAG, "Received SDP Offer: Setting Remote Description");
 
-                final String sdp = Event.parseOfferEvent(offerEvent);
+                // TODO: Change this from a single variable to another data structure
+                //  (e.g. map of clientId -> PeerConnection) to be able to have multiple simultaneous
+                //  peer connections
+                localPeerLock.lock();
+                try {
+                    if (localPeer != null && localPeer.getRemoteDescription() != null) {
+                        Log.w(TAG, "Peer already exists, resetting.");
+                        peerConnectionFoundMap.remove(offerEvent.getSenderClientId());
+                        localPeer.dispose();
+                        localPeer = null;
+                        createLocalPeerConnection();
+                    }
+                    sdpOfferReceived.set(true);
 
-                localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
-                recipientClientId = offerEvent.getSenderClientId();
-                Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
+                    final String sdp = Event.parseOfferEvent(offerEvent);
 
-                createSdpAnswer();
+                    localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
+
+                    recipientClientId = offerEvent.getSenderClientId();
+
+                    Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
+
+                    createSdpAnswer();
+                } finally {
+                    localPeerLock.unlock();
+                }
 
                 if (master && webrtcEndpoint != null) {
-                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Media is being recorded to " + mStreamArn, Toast.LENGTH_LONG).show());
-                    Log.i(TAG, "Media is being recorded to " + mStreamArn);
+                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Received offer from the storage session.", Toast.LENGTH_SHORT).show());
+                    Log.i(TAG, "Offer received from the storage session.");
                 }
             }
 
@@ -238,14 +285,20 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
-                localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
-                    @Override
-                    public void onCreateFailure(final String error) {
-                        super.onCreateFailure(error);
-                    }
-                }, sdpAnswer);
-                Log.d(TAG, "Answer Client ID: " + answerEvent.getSenderClientId());
-                peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
+                localPeerLock.lock();
+                try {
+                    localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
+                        @Override
+                        public void onCreateFailure(final String error) {
+                            super.onCreateFailure(error);
+                        }
+                    }, sdpAnswer);
+
+                    Log.d(TAG, "Answer Client ID: " + answerEvent.getSenderClientId());
+                    peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
+                } finally {
+                    localPeerLock.unlock();
+                }
                 // Check if ICE candidates are available in the queue and add the candidate
                 handlePendingIceCandidates(answerEvent.getSenderClientId());
 
@@ -278,54 +331,56 @@ public class WebRtcActivity extends AppCompatActivity {
         // Step 11. Create SignalingServiceWebSocketClient.
         //          This is the actual client that is used to send messages over the signaling channel.
         //          SignalingServiceWebSocketClient will attempt to open the connection in its constructor.
-        if (wsHost != null) {
-            try {
-                client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
-
-                Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
-            } catch (final Exception e) {
-                Log.e(TAG, "Exception with websocket client: " + e);
-                gotException = true;
-                return;
+        try {
+            long pingIntervalSeconds = 0;
+            if (webrtcEndpoint != null) {
+                // Send a ping message every 4 min, 30s, since the WebSocket closes after being idle for 10 minutes.
+                // 4 minutes 30 seconds will allow a ping to be missed
+                pingIntervalSeconds = TimeUnit.MINUTES.toSeconds(4L) + TimeUnit.SECONDS.toSeconds(30L);
             }
+            final ExecutorService executor = Executors.newFixedThreadPool(10);
+            client = new SignalingServiceWebSocketClient(wsHost, signalingListener, executor, pingIntervalSeconds);
 
-            if (isValidClient()) {
+            Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
+        } catch (final Exception e) {
+            Log.e(TAG, "Exception with websocket client: " + e);
+            gotException = true;
+            return;
+        }
 
-                Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
+        if (!isValidClient()) {
+            Log.e(TAG, "Error in connecting to signaling service");
+            gotException = true;
+        }
 
-                if (master) {
+        Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
 
-                    // If webrtc endpoint is non-null ==> Ingest media was checked
-                    if (webrtcEndpoint != null) {
-                        new Thread(() -> {
-                            try {
-                                final AWSKinesisVideoWebRTCStorageClient storageClient =
-                                        new AWSKinesisVideoWebRTCStorageClient(
-                                                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
-                                storageClient.setRegion(Region.getRegion(mRegion));
-                                storageClient.setSignerRegionOverride(mRegion);
-                                storageClient.setServiceNameIntern("kinesisvideo");
-                                storageClient.setEndpoint(webrtcEndpoint);
+        if (master) {
+            // If webrtc endpoint is non-null ==> We want to use media ingestion feature
+            if (webrtcEndpoint != null) {
+                new Thread(() -> {
+                    try {
+                        final ClientConfiguration storageClientConfiguration = new ClientConfiguration()
+                                .withMaxErrorRetry(0);
+                        storageClient = new AWSKinesisVideoWebRTCStorageClient(
+                                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials(),
+                                storageClientConfiguration);
+                        storageClient.setRegion(Region.getRegion(mRegion));
+                        storageClient.setSignerRegionOverride(mRegion);
+                        storageClient.setServiceNameIntern("kinesisvideo");
+                        storageClient.setEndpoint(webrtcEndpoint);
 
-                                Log.i(TAG, "Channel ARN is: " + mChannelArn);
-                                storageClient.joinStorageSession(new JoinStorageSessionRequest()
-                                        .withChannelArn(mChannelArn));
-                                Log.i(TAG, "Join storage session request sent!");
-                            } catch (Exception ex) {
-                                Log.e(TAG, "Error sending join storage session request!", ex);
-                            }
-                        }).start();
+                        callJoinStorageSessionUntilSdpOfferReceived(runIdentifier.incrementAndGet());
+                    } catch (Exception ex) {
+                        Log.e(TAG, "Error sending join storage session request!", ex);
                     }
-                } else {
-                    Log.d(TAG, "Signaling service is connected: " +
-                            "Sending offer as viewer to remote peer"); // Viewer
-
-                    createSdpOffer();
-                }
-            } else {
-                Log.e(TAG, "Error in connecting to signaling service");
-                gotException = true;
+                }).start();
             }
+        } else {
+            Log.d(TAG, "Signaling service is connected: " +
+                    "Sending offer as viewer to remote peer"); // Viewer
+
+            createSdpOffer();
         }
     }
 
@@ -383,8 +438,17 @@ public class WebRtcActivity extends AppCompatActivity {
         else {
             Log.d(TAG, "Peer connection found already");
             // Remote sent us ICE candidates, add to local peer connection
-            final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
-            final boolean addIce = peer.addIceCandidate(iceCandidate);
+
+            boolean addIce = false;
+            localPeerLock.lock();
+            try {
+                final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
+                if (peer != null) {
+                    addIce = peer.addIceCandidate(iceCandidate);
+                }
+            } finally {
+                localPeerLock.unlock();
+            }
 
             Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
         }
@@ -394,6 +458,8 @@ public class WebRtcActivity extends AppCompatActivity {
     protected void onDestroy() {
         Thread.setDefaultUncaughtExceptionHandler(null);
         printStatsExecutor.shutdownNow();
+        sdpOfferReceived.set(true);
+        runIdentifier.incrementAndGet();
 
         audioManager.setMode(originalAudioMode);
         audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
@@ -408,9 +474,14 @@ public class WebRtcActivity extends AppCompatActivity {
             remoteView = null;
         }
 
-        if (localPeer != null) {
-            localPeer.dispose();
-            localPeer = null;
+        localPeerLock.lock();
+        try {
+            if (localPeer != null) {
+                localPeer.dispose();
+                localPeer = null;
+            }
+        } finally {
+            localPeerLock.unlock();
         }
 
         if (videoSource != null) {
@@ -452,7 +523,7 @@ public class WebRtcActivity extends AppCompatActivity {
         initWsConnection();
 
         if (!gotException && isValidClient()) {
-            Toast.makeText(this, "Signaling Connected", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Signaling Connected", Toast.LENGTH_SHORT).show();
         } else {
             notifySignalingConnectionFailed();
         }
@@ -460,7 +531,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private void notifySignalingConnectionFailed() {
         finish();
-        Toast.makeText(this, "Connection error to signaling", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Connection error to signaling", Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -491,14 +562,16 @@ public class WebRtcActivity extends AppCompatActivity {
 
         rootEglBase = EglBase.create();
 
-        //TODO: add ui to control TURN only option
+        if (intent.getBooleanExtra(KEY_USE_STUN, true)) {
+            final PeerConnection.IceServer stun = PeerConnection
+                    .IceServer
+                    .builder(Collections.singletonList(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion)))
+                    .createIceServer();
 
-        final PeerConnection.IceServer stun = PeerConnection
-                .IceServer
-                .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
-                .createIceServer();
-
-        peerIceServers.add(stun);
+            peerIceServers.add(stun);
+        } else {
+            Log.i(TAG, "Not using STUN.");
+        }
 
         if (mUrisList != null) {
             for (int i = 0; i < mUrisList.size(); i++) {
@@ -653,9 +726,19 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onIceConnectionChange(final PeerConnection.IceConnectionState iceConnectionState) {
                 super.onIceConnectionChange(iceConnectionState);
                 if (iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
-                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connection to peer failed!", Toast.LENGTH_LONG).show());
+                    if (mStreamArn == null) {
+                        runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connection to peer failed!", Toast.LENGTH_SHORT).show());
+                    } else {
+                        onPeerConnectionFailed();
+                    }
                 } else if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
-                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connected to peer!", Toast.LENGTH_LONG).show());
+                    if (master && mStreamArn != null) {
+                        runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Joined storage session. Media is being recorded to " + mStreamArn, Toast.LENGTH_SHORT).show());
+                        Log.i(TAG, "Success! Media is being recorded to " + mStreamArn);
+                    } else {
+                        runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connected to peer!", Toast.LENGTH_SHORT).show());
+                        Log.i(TAG, "Successfully connected to peer!");
+                    }
                 }
             }
 
@@ -705,19 +788,57 @@ public class WebRtcActivity extends AppCompatActivity {
             }
         });
 
-        if (localPeer != null) {
-            printStatsExecutor.scheduleWithFixedDelay(() -> {
-                localPeer.getStats(rtcStatsReport -> {
-                    final Map<String, RTCStats> statsMap = rtcStatsReport.getStatsMap();
-                    for (final Map.Entry<String, RTCStats> entry : statsMap.entrySet()) {
-                        Log.d(TAG, "Stats: " + entry.getKey() + ", " + entry.getValue());
+        // Print stats periodically
+        if (LOG_STATS_INTERVAL_SECONDS > 0) {
+            if (printStatsTask != null) {
+                printStatsTask.cancel(false);
+            }
+
+            printStatsTask = printStatsExecutor.scheduleWithFixedDelay(() -> {
+                localPeerLock.lock();
+                try {
+                    if (localPeer != null) {
+                        localPeer.getStats(rtcStatsReport -> {
+                            final Map<String, RTCStats> statsMap = rtcStatsReport.getStatsMap();
+                            for (final Map.Entry<String, RTCStats> entry : statsMap.entrySet()) {
+                                Log.d(TAG, "Stats: " + entry.getKey() + ", " + entry.getValue());
+                            }
+                        });
                     }
-                });
-            }, 0, 10, TimeUnit.SECONDS);
+                } finally {
+                    localPeerLock.unlock();
+                }
+            }, 0, LOG_STATS_INTERVAL_SECONDS, TimeUnit.SECONDS);
         }
 
         addDataChannelToLocalPeer();
         addStreamToLocalPeer();
+    }
+
+    private void onPeerConnectionFailed() {
+        sdpOfferReceived.set(false);
+        joinStorageSessionFailureDates.add(new Date().getTime());
+        if (shouldStopRetryingJoinStorageSession()) {
+            Log.e(TAG, "Failed to join the storage session " + Constants.MAX_CONNECTION_FAILURES_WITHIN_INTERVAL_FOR_JOIN_STORAGE_SESSION_RETRIES + " times within a " + TimeUnit.MILLISECONDS.toMinutes(Constants.JOIN_STORAGE_SESSION_RETRIES_INTERVAL_MILLIS) + "-minute interval! (" + joinStorageSessionFailureDates + ")");
+            runOnUiThread(() -> {
+                Toast.makeText(getApplicationContext(), "Failed to connect to the storage session too many times within a short interval!", Toast.LENGTH_SHORT).show();
+                onBackPressed();
+            });
+            return;
+        }
+        runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Attempting to connect to the storage session again!", Toast.LENGTH_SHORT).show());
+        Log.i(TAG, "Attempting to reconnect to media service.");
+        new Thread(() -> {
+            try {
+                if (!client.isOpen()) {
+                    Log.i(TAG, "The WebSocket isn't open. Need to re-open.");
+                    reopenWebsocket();
+                }
+                callJoinStorageSessionUntilSdpOfferReceived(runIdentifier.incrementAndGet());
+            } catch (Exception ex) {
+                Log.e(TAG, "Error sending join storage session request!", ex);
+            }
+        }).start();
     }
 
     private Message createIceCandidateMessage(final IceCandidate iceCandidate) {
@@ -742,7 +863,6 @@ public class WebRtcActivity extends AppCompatActivity {
     }
 
     private void addStreamToLocalPeer() {
-
         final MediaStream stream = peerConnectionFactory.createLocalMediaStream(LOCAL_MEDIA_STREAM_LABEL);
 
         if (!stream.addTrack(localVideoTrack)) {
@@ -762,7 +882,6 @@ public class WebRtcActivity extends AppCompatActivity {
                 Log.d(TAG, "Sending audio track");
             }
         }
-
     }
 
     private void addDataChannelToLocalPeer() {
@@ -814,29 +933,33 @@ public class WebRtcActivity extends AppCompatActivity {
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
 
-        if (localPeer == null) {
-
-            createLocalPeerConnection();
-        }
-
-        localPeer.createOffer(new KinesisVideoSdpObserver() {
-
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-
-                super.onCreateSuccess(sessionDescription);
-
-                localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
-
-                final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
-
-                if (isValidClient()) {
-                    client.sendSdpOffer(sdpOfferMessage);
-                } else {
-                    notifySignalingConnectionFailed();
-                }
+        localPeerLock.lock();
+        try {
+            if (localPeer == null) {
+                createLocalPeerConnection();
             }
-        }, sdpMediaConstraints);
+
+            localPeer.createOffer(new KinesisVideoSdpObserver() {
+
+                @Override
+                public void onCreateSuccess(SessionDescription sessionDescription) {
+
+                    super.onCreateSuccess(sessionDescription);
+
+                    localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
+
+                    final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
+
+                    if (isValidClient()) {
+                        client.sendSdpOffer(sdpOfferMessage);
+                    } else {
+                        notifySignalingConnectionFailed();
+                    }
+                }
+            }, sdpMediaConstraints);
+        } finally {
+            localPeerLock.unlock();
+        }
     }
 
 
@@ -860,6 +983,27 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 peerConnectionFoundMap.put(recipientClientId, localPeer);
                 handlePendingIceCandidates(recipientClientId);
+
+                if (mStreamArn != null) {
+                    new Thread() {
+                        @Override
+                        public void run() {
+                            final PeerConnection pc = localPeer;
+                            try {
+                                Thread.sleep(TimeUnit.SECONDS.toMillis(Constants.TIMEOUT_TO_ESTABLISH_CONNECTION_WITH_MEDIA_SERVER_SECONDS));
+                                if (pc == localPeer &&
+                                        localPeer.iceConnectionState() != PeerConnection.IceConnectionState.CONNECTED &&
+                                        localPeer.iceConnectionState() != PeerConnection.IceConnectionState.DISCONNECTED &&
+                                        localPeer.iceConnectionState() != PeerConnection.IceConnectionState.CLOSED) {
+                                    Log.e(TAG, "Couldn't connect to media server within " + Constants.TIMEOUT_TO_ESTABLISH_CONNECTION_WITH_MEDIA_SERVER_SECONDS + " seconds!");
+                                    onPeerConnectionFailed();
+                                }
+                            } catch (final Exception ex) {
+                                Log.e(TAG, "Exception while waiting!", ex);
+                            }
+                        }
+                    }.start();
+                }
             }
 
             @Override
@@ -921,7 +1065,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 .orElse("");
 
         if (accessKey.isEmpty() || secretKey.isEmpty()) {
-            Toast.makeText(this, "Failed to fetch credentials!", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Failed to fetch credentials!", Toast.LENGTH_SHORT).show();
             return null;
         }
 
@@ -1016,5 +1160,106 @@ public class WebRtcActivity extends AppCompatActivity {
             final NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
         }
+    }
+
+    private void reopenWebsocket() {
+        Log.i(TAG, "Reconnecting to the WebSocket!");
+        // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-2.html
+        final String masterEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn;
+
+        // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
+        final String viewerEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
+
+        mCreds = KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials();
+
+        final URI signedUri;
+        if (master) {
+            signedUri = getSignedUri(masterEndpoint);
+        } else {
+            signedUri = getSignedUri(viewerEndpoint);
+        }
+
+        if (signedUri == null) {
+            Log.e(TAG, "There was an error generating the URI");
+            return;
+        }
+
+        if (client != null && client.isOpen()) {
+            client.disconnect();
+        }
+
+        long pingIntervalSeconds = 0;
+        if (webrtcEndpoint != null) {
+            // Send a ping message every 4 min, 30s, since the WebSocket closes after being idle for 10 minutes.
+            // 4 minutes 30 seconds will allow a ping to be missed
+            pingIntervalSeconds = TimeUnit.MINUTES.toSeconds(4L) + TimeUnit.SECONDS.toSeconds(30L);
+        }
+        final ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        client = new SignalingServiceWebSocketClient(signedUri.toString(), signalingListener, executor, pingIntervalSeconds);
+    }
+
+    private boolean shouldStopRetryingJoinStorageSession() {
+        // It should stop retrying if there are too many failures within the past INTERVAL.
+        final long intervalAgoEpochMillis = new Date().getTime() - Constants.JOIN_STORAGE_SESSION_RETRIES_INTERVAL_MILLIS;
+
+        Long front = joinStorageSessionFailureDates.peek();
+        while (front != null && front < intervalAgoEpochMillis) {
+            joinStorageSessionFailureDates.remove();
+            front = joinStorageSessionFailureDates.peek();
+        }
+
+        joinStorageSessionFailureDates.removeIf(failureEpochMillis -> failureEpochMillis < intervalAgoEpochMillis);
+
+        return joinStorageSessionFailureDates.size() >= Constants.MAX_CONNECTION_FAILURES_WITHIN_INTERVAL_FOR_JOIN_STORAGE_SESSION_RETRIES;
+    }
+
+    private void callJoinStorageSessionUntilSdpOfferReceived(final int currentIteration) {
+        boolean doRetry = true;
+        int currentRetryCount = 1;
+        while (doRetry && currentIteration == runIdentifier.get() && currentRetryCount < LOG_STATS_INTERVAL_SECONDS) {
+            if (currentRetryCount == 1) {
+                Log.i(TAG, "Retrying joinStorageSession.");
+            }
+            Log.i(TAG, "Channel ARN is: " + mChannelArn);
+            try {
+                storageClient.joinStorageSession(new JoinStorageSessionRequest()
+                        .withChannelArn(mChannelArn));
+
+                Thread.sleep(WEBSOCKET_MESSAGE_DELIVERY_TIMEOUT_MILLISECONDS);
+
+                doRetry = !sdpOfferReceived.get();
+            } catch (final AmazonServiceException ex) {
+                doRetry = ex.getStatusCode() == 500 || ex instanceof ClientLimitExceededException;
+                if (doRetry) {
+                    Log.e(TAG, "Encountered retryable service exception!", ex);
+                } else {
+                    Log.e(TAG, "Encountered non-retryable service exception!", ex);
+                }
+            } catch (final AmazonClientException ex) {
+                doRetry = ex.getCause() instanceof UnknownHostException || ex.getCause() instanceof SocketTimeoutException;
+                if (doRetry) {
+                    Log.e(TAG, "Encountered retryable client exception!", ex);
+                } else {
+                    Log.e(TAG, "Encountered non-retryable client exception!", ex);
+                }
+            } catch (final Exception ex) {
+                Log.e(TAG, "Encountered non-retryable exception!", ex);
+                doRetry = false;
+            }
+            Log.i(TAG, "Join storage session request sent!");
+            currentRetryCount++;
+
+            try {
+                Thread.sleep(calculateExponentialBackoff(currentRetryCount));
+            } catch (final InterruptedException e) {
+                Log.e(TAG, "Interrupted while sleeping!", e);
+                return;
+            }
+        }
+    }
+
+    private long calculateExponentialBackoff(final int retryCount) {
+        return (long) (Math.random() * Math.min(Constants.EXPONENTIAL_BACKOFF_COEFFICIENT_MILLISECONDS * Math.pow(2, retryCount - 1), EXPONENTIAL_BACKOFF_CAP_MILLISECONDS));
     }
 }

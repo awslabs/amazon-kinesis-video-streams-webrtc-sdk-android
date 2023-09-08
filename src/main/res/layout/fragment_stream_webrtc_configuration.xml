@@ -89,20 +89,51 @@
             android:layout_width="match_parent"
             android:layout_height="20dp" />
 
-        <CheckBox
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Ingest media (master only)"
-            android:layoutDirection="rtl"
-            android:id="@+id/ingest_media"
-            android:layout_margin="16dp"
-            android:textSize="16sp"
-            tools:ignore="HardcodedText" />
-
         <ListView
             android:layout_width="match_parent"
             android:layout_height="100dp"
             android:id="@+id/webrtc_options" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Advanced"
+            tools:ignore="HardcodedText" />
+
+        <CheckBox
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Use TURN"
+            android:layoutDirection="rtl"
+            android:id="@+id/use_turn"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:textSize="16sp"
+            android:checked="true"
+            tools:ignore="HardcodedText" />
+
+        <CheckBox
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Use STUN"
+            android:layoutDirection="rtl"
+            android:id="@+id/use_stun"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:textSize="16sp"
+            android:checked="true"
+            tools:ignore="HardcodedText" />
+
+        <CheckBox
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Media ingestion feature"
+            android:layoutDirection="rtl"
+            android:id="@+id/ingest_media"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:textSize="16sp"
+            tools:ignore="HardcodedText" />
 
         <Space
             android:layout_width="match_parent"

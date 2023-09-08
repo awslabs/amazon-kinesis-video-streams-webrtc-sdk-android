@@ -28,8 +28,13 @@ public class SignalingServiceWebSocketClient {
 
     public SignalingServiceWebSocketClient(final String uri, final SignalingListener signalingListener,
                                            final ExecutorService executorService) {
+        this(uri, signalingListener, executorService, 0L);
+    }
+
+    public SignalingServiceWebSocketClient(final String uri, final SignalingListener signalingListener,
+                                           final ExecutorService executorService, final long pingIntervalSeconds) {
         Log.d(TAG, "Connecting to URI " + uri + " as master");
-        websocketClient = new WebSocketClient(uri, new ClientManager(), signalingListener, executorService);
+        websocketClient = new WebSocketClient(uri, new ClientManager(), signalingListener, executorService, pingIntervalSeconds);
         this.executorService = executorService;
     }
 

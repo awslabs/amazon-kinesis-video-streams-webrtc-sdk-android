@@ -15,10 +15,14 @@ import org.glassfish.tyrus.client.ClientProperties;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import javax.websocket.ClientEndpointConfig;
@@ -40,9 +44,12 @@ class WebSocketClient {
 
     private final ExecutorService executorService;
 
+    private final ScheduledExecutorService pingService;
+
     WebSocketClient(final String uri, final ClientManager clientManager,
                     final SignalingListener signalingListener,
-                    final ExecutorService executorService) {
+                    final ExecutorService executorService,
+                    final long pingIntervalSeconds) {
 
         this.executorService = executorService;
         final ClientEndpointConfig cec = ClientEndpointConfig.Builder.create()
@@ -99,6 +106,38 @@ class WebSocketClient {
         });
 
         await().atMost(10, TimeUnit.SECONDS).until(WebSocketClient.this::isOpen);
+
+        if (pingIntervalSeconds > 0) {
+            pingService = Executors.newSingleThreadScheduledExecutor();
+
+            pingService.scheduleAtFixedRate(() -> {
+                try {
+                    if (session == null || !session.isOpen()) {
+                        Log.e(TAG, "Unable to send ping. Session has been closed.");
+                        if (!pingService.isShutdown()) {
+                            pingService.shutdown();
+                        }
+                        return;
+                    }
+                    session.getAsyncRemote().sendPing(ByteBuffer.wrap("".getBytes(StandardCharsets.UTF_8)));
+                    Log.i(TAG, "Sent ping! Sending another in " + pingIntervalSeconds + " seconds.");
+                } catch (final Exception ex) {
+                    Log.e(TAG, "Exception sending ping message", ex);
+                }
+            }, 0, pingIntervalSeconds, TimeUnit.SECONDS);
+
+            Log.i(TAG, "Sending a ping keep-alive message every " + pingIntervalSeconds + " seconds.");
+        } else {
+            pingService = null;
+            Log.d(TAG, "Not sending any pings.");
+        }
+    }
+
+    WebSocketClient(final String uri, final ClientManager clientManager,
+                    final SignalingListener signalingListener,
+                    final ExecutorService executorService) {
+
+        this(uri, clientManager, signalingListener, executorService, 0L);
     }
 
     boolean isOpen() {
@@ -129,14 +168,19 @@ class WebSocketClient {
             return;
         }
 
-        if (!session.isOpen()) {
-            Log.w(TAG, "Connection already closed for " + session.getRequestURI());
-            return;
+        if (pingService != null && !pingService.isShutdown()) {
+            pingService.shutdownNow();
         }
 
         try {
-            session.close();
-            executorService.shutdownNow();
+            if (!session.isOpen()) {
+                Log.w(TAG, "Connection already closed for " + session.getRequestURI());
+            } else {
+                session.close();
+            }
+            if (!executorService.isShutdown()) {
+                executorService.shutdownNow();
+            }
             Log.i(TAG, "Disconnected from " + session.getRequestURI() + " successfully!");
         } catch (final IOException e) {
             Log.e(TAG, "Exception closing: " + e.getMessage());
