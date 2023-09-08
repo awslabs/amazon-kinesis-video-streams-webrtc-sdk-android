@@ -187,7 +187,7 @@ public class WebRtcActivity extends AppCompatActivity {
         final String masterEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn;
 
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
-        final String viewerEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM+ "=" + mClientId;
+        final String viewerEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
 
         runOnUiThread(() -> mCreds = KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
 
@@ -492,7 +492,6 @@ public class WebRtcActivity extends AppCompatActivity {
         mCameraFacingFront = intent.getBooleanExtra(KEY_CAMERA_FRONT_FACING, true);
 
         rootEglBase = EglBase.create();
-//        rootEglBase = EglBase.createEgl14((EglBase14.Context) null, EglBase.CONFIG_PLAIN);
 
 
         //TODO: add ui to control TURN only option
@@ -501,20 +500,17 @@ public class WebRtcActivity extends AppCompatActivity {
                 .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
                 .createIceServer();
 
-//        final PeerConnection.IceServer stun = new PeerConnection.IceServer(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion));
-
         peerIceServers.add(stun);
 
         if (mUrisList != null) {
             for (int i = 0; i < mUrisList.size(); i++) {
                 final String turnServer = mUrisList.get(i).toString();
                 if (turnServer != null) {
-//                    final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
-//                            .setUsername(mUserNames.get(i))
-//                            .setPassword(mPasswords.get(i))
-//                            .createIceServer();
+                    final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
+                            .setUsername(mUserNames.get(i))
+                            .setPassword(mPasswords.get(i))
+                            .createIceServer();
 
-                    final IceServer iceServer = new IceServer(turnServer.replace("[", "").replace("]", ""), mUserNames.get(i), mPasswords.get(i));
                     Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
                     peerIceServers.add(iceServer);
                 }
@@ -524,7 +520,6 @@ public class WebRtcActivity extends AppCompatActivity {
         try {
             setContentView(R.layout.activity_webrtc_main);
         } catch (Exception ex) {
-            Log.d(TAG, "AAAAAAAA~~");
             ex.printStackTrace();
         }
 
