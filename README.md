@@ -22,7 +22,7 @@
 ## 4. Build and run the demo application using Android Studio
 
  1.  Import the downloaded SDK into the Android Studio integrated development environment by opening the **amazon-kinesis-video-streams-webrtc-sdkandroid/build.gradle** with `Open an existing Android Studio project`.
- 2.  You will need all the information from the above steps copied in clipboard, then paste them into this file on your local file [awsconfiguration.json](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/blob/master/src/main/res/raw/awsconfiguration.json). Your completed awsconfiguration.json should look something like this:
+ 2.  You will need all the information from the above steps copied in clipboard, then paste them into this file on your local file [awsconfiguration.json](app/src/main/res/raw/awsconfiguration.json). Your completed awsconfiguration.json should look something like this:
  ```json
  {
   "Version": "1.0",

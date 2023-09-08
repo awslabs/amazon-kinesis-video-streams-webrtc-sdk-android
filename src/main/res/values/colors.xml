@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-
-    <color name="toolbar_background">#404142</color>
-    <color name="toolbar_items">#CBCBCB</color>
-    <color name="button_default">#329AD6</color>
-    <color name="button_pressed">#2A5C91</color>
-</resources>
