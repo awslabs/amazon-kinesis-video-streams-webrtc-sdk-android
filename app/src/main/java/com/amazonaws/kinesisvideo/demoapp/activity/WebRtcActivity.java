@@ -517,15 +517,11 @@ public class WebRtcActivity extends AppCompatActivity {
             }
         }
 
-        try {
-            setContentView(R.layout.activity_webrtc_main);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        setContentView(R.layout.activity_webrtc_main);
 
         PeerConnectionFactory.initialize(PeerConnectionFactory
                 .InitializationOptions
-                .builder(getApplicationContext())
+                .builder(this)
                 .createInitializationOptions());
 
         final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
