@@ -23,7 +23,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.TestApplication"
+        android:theme="@style/Theme.WebRTCDemoApp"
         tools:targetApi="31">
         <activity
             android:name="com.amazonaws.kinesisvideo.demoapp.activity.StartUpActivity"
