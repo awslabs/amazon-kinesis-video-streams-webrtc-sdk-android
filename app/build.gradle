@@ -64,7 +64,9 @@ task checkForLibWebRTC() {
 
         // Check dependencies by name
         configurations.implementation.dependencies.forEach(dependency -> {
-            if (dependency.name.contains("webrtc") && !dependency.name.contains("webrtcstorage")) {
+            // Check the name of the dependency, and also the name of the group
+            if ((dependency.group && dependency.group.contains("webrtc") || dependency.name.contains("webrtc"))
+                    && !dependency.name.contains("webrtcstorage")) {
                 webrtcFound = true
             }
         })
