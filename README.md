@@ -48,10 +48,13 @@
 }
  ```
  3. Import Google WebRTC (aka libwebrtc). Choose one of the following:
+
     a. Build libwebrtc yourself, following https://webrtc.github.io/webrtc-org/native-code/android/#getting-the-code. After it's been built, place the `.aar` file in [libs](app/libs).
+    
     b. Acquire a pre-built binary of libwebrtc and import it. For example, https://central.sonatype.com/artifact/io.github.webrtc-sdk/android.
- 4. Click gradle __Sync__ and __Build__
- 5. Run the demo application in simulator or in Android device (connected through USB).
+    
+ 5. Click gradle __Sync__ and __Build__
+ 6. Run the demo application in simulator or in Android device (connected through USB).
 
 
 ## 5. Peer to Peer Streaming
