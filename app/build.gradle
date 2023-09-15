@@ -84,7 +84,7 @@ task checkForLibWebRTC() {
                     "your own following directions here https://webrtc.github.io/webrtc-org/native-code/android/ " +
                     "to create the AAR, and place it in the app/libs folder so they can be properly referenced in the " +
                     "build.gradle file or (2) acquire a pre-built binary for libwebrtc android " +
-                    "from any other means. https://central.sonatype.com/artifact/io.github.webrtc-sdk/android provides " +
+                    "from any other means. For example, https://central.sonatype.com/artifact/io.github.webrtc-sdk/android provides " +
                     "these libraries, or you can get them from somewhere else."
             )
         }
