@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">AWSKinesisVideoWebRTCDemoApp</string>
+
+    <string name="title_fragment_channel">Channel Configuration</string>
+    <string name="title_activity_login">AWS KinesisVideo WebRTC Demo</string>
+
+    <string name="title_activity_simple_nav">SimpleNavActivity</string>
+    <string name="title_activity_webrtc">WebRtcActivity</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="data_channel_notification">KVS WebRTC Data Channel Notification Channel</string>
+    <string name="data_channel_notification_description">This channel shows all messages coming from WebRTC.</string>
+</resources>

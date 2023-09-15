@@ -22,7 +22,7 @@
 ## 4. Build and run the demo application using Android Studio
 
  1.  Import the downloaded SDK into the Android Studio integrated development environment by opening the **amazon-kinesis-video-streams-webrtc-sdkandroid/build.gradle** with `Open an existing Android Studio project`.
- 2.  You will need all the information from the above steps copied in clipboard, then paste them into this file on your local file [awsconfiguration.json](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/blob/master/src/main/res/raw/awsconfiguration.json). Your completed awsconfiguration.json should look something like this:
+ 2.  You will need all the information from the above steps copied in clipboard, then paste them into this file on your local file [awsconfiguration.json](app/src/main/res/raw/awsconfiguration.json). Your completed awsconfiguration.json should look something like this:
  ```json
  {
   "Version": "1.0",
@@ -47,8 +47,14 @@
   }
 }
  ```
- 4.  Click gradle __Sync__ and __Build__
- 5.  Run the demo application in simulator or in Android device (connected through USB).
+ 3. Import Google WebRTC (aka libwebrtc). Choose one of the following:
+
+    a. Build libwebrtc yourself, following https://webrtc.github.io/webrtc-org/native-code/android/#getting-the-code. After it's been built, place the `.aar` file in [libs](app/libs).
+    
+    b. Acquire a pre-built binary of libwebrtc and import it. For example, https://central.sonatype.com/artifact/io.github.webrtc-sdk/android.
+    
+ 5. Click gradle __Sync__ and __Build__
+ 6. Run the demo application in simulator or in Android device (connected through USB).
 
 
 ## 5. Peer to Peer Streaming

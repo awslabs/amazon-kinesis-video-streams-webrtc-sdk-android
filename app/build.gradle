@@ -1,0 +1,96 @@
+plugins {
+    id 'com.android.application'
+    id 'jacoco'
+}
+
+android {
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.amazonaws.kinesisvideo.webrtc_sdk_android"
+        minSdk 29
+        targetSdk 33
+        versionCode 1
+        versionName "1.0.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+
+    def aws_version = '2.73.0'
+    implementation("com.amazonaws:aws-android-sdk-kinesisvideo:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-kinesisvideo-signaling:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-kinesisvideo-webrtcstorage:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-mobile-client:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-auth-userpools:$aws_version@aar") { transitive = true }
+    implementation("com.amazonaws:aws-android-sdk-auth-ui:$aws_version@aar") { transitive = true }
+
+    implementation 'org.awaitility:awaitility:4.2.0'
+    implementation 'org.json:json:20190722'
+    implementation 'com.google.guava:guava:28.1-android'
+    implementation 'com.google.code.gson:gson:2.8.9'
+    implementation 'org.apache.commons:commons-lang3:3.9'
+    implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.20') {
+        exclude module: 'javax.inject'
+    }
+
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+}
+
+// Check that libwebrtc is present during build
+task checkForLibWebRTC() {
+    doLast {
+        boolean webrtcFound = false
+
+        // Check dependencies by name
+        configurations.implementation.dependencies.forEach(dependency -> {
+            // Check the name of the dependency, and also the name of the group
+            if ((dependency.group && dependency.group.contains("webrtc") || dependency.name.contains("webrtc"))
+                    && !dependency.name.contains("webrtcstorage")) {
+                webrtcFound = true
+            }
+        })
+
+        // Check file dependencies
+        if (!webrtcFound) {
+            fileTree(dir: 'libs', include: ['*.jar', '*.aar']).forEach(file -> {
+                if (file.name.contains("webrtc")) {
+                    webrtcFound = true
+                }
+            })
+        }
+
+        if (!webrtcFound) {
+            throw new RuntimeException(
+                    "Unable to find Google WebRTC. You will need to either: (1) build libwebrtc on " +
+                    "your own following directions here https://webrtc.github.io/webrtc-org/native-code/android/ " +
+                    "to create the AAR, and place it in the app/libs folder so they can be properly referenced in the " +
+                    "build.gradle file or (2) acquire a pre-built binary for libwebrtc android " +
+                    "from any other means. For example, https://central.sonatype.com/artifact/io.github.webrtc-sdk/android provides " +
+                    "these libraries, or you can get them from somewhere else."
+            )
+        }
+    }
+}
+
+preBuild.dependsOn checkForLibWebRTC
