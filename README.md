@@ -51,7 +51,7 @@
 
     a. Build libwebrtc yourself, following https://webrtc.github.io/webrtc-org/native-code/android/#getting-the-code. After it's been built, place the `.aar` file in [libs](app/libs).
     
-    b. Acquire a pre-built binary of libwebrtc and import it. For example, https://central.sonatype.com/artifact/io.github.webrtc-sdk/android.
+    b. Acquire a pre-built binary of libwebrtc and import it. 
     
  5. Click gradle __Sync__ and __Build__
  6. Run the demo application in simulator or in Android device (connected through USB).
