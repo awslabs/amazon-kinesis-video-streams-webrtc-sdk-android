@@ -181,7 +181,7 @@ public class WebRtcActivity extends AppCompatActivity {
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
         final String viewerEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
 
-        runOnUiThread(() -> mCreds = KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+        runOnUiThread(() -> mCreds = KinesisVideoWebRtcDemoApp.getCredentials());
 
         final URI signedUri;
         if (master) {
@@ -297,7 +297,7 @@ public class WebRtcActivity extends AppCompatActivity {
                             try {
                                 final AWSKinesisVideoWebRTCStorageClient storageClient =
                                         new AWSKinesisVideoWebRTCStorageClient(
-                                                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+                                                KinesisVideoWebRtcDemoApp.getCredentials());
                                 storageClient.setRegion(Region.getRegion(mRegion));
                                 storageClient.setSignerRegionOverride(mRegion);
                                 storageClient.setServiceNameIntern("kinesisvideo");

@@ -305,7 +305,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
     private AWSKinesisVideoClient getAwsKinesisVideoClient(final String region) {
         final AWSKinesisVideoClient awsKinesisVideoClient = new AWSKinesisVideoClient(
-                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+                KinesisVideoWebRtcDemoApp.getCredentials());
         awsKinesisVideoClient.setRegion(Region.getRegion(region));
         awsKinesisVideoClient.setSignerRegionOverride(region);
         awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
@@ -314,7 +314,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
     private AWSKinesisVideoSignalingClient getAwsKinesisVideoSignalingClient(final String region, final String endpoint) {
         final AWSKinesisVideoSignalingClient client = new AWSKinesisVideoSignalingClient(
-                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+                KinesisVideoWebRtcDemoApp.getCredentials());
         client.setRegion(Region.getRegion(region));
         client.setSignerRegionOverride(region);
         client.setServiceNameIntern("kinesisvideo");

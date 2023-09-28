@@ -32,9 +32,10 @@
         android:theme="@style/Theme.WebRTCDemoApp"
         tools:targetApi="31">
         <activity
-            android:name=".activity.StartUpActivity"
+            android:name=".activity.SimpleNavActivity"
+            android:label="@string/title_activity_simple_nav"
             android:exported="true"
-            android:label="@string/title_activity_login">
+            android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -42,14 +43,11 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".activity.SimpleNavActivity"
-            android:label="@string/title_activity_simple_nav"
-            android:theme="@style/AppTheme"></activity>
-        <activity
             android:name=".activity.WebRtcActivity"
             android:label="@string/title_activity_webrtc"
             android:screenOrientation="portrait"
-            android:theme="@style/AppTheme" />
+            android:theme="@style/AppTheme">
+        </activity>
     </application>
 
 </manifest>
