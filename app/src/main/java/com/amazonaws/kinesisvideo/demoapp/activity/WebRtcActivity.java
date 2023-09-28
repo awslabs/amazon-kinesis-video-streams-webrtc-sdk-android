@@ -30,8 +30,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
@@ -85,7 +83,6 @@ import org.webrtc.VideoTrack;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -100,8 +97,6 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import javax.microedition.khronos.egl.EGLContext;
 
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
@@ -145,9 +140,6 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean master = true;
     private boolean isAudioSent = false;
-
-    private EditText dataChannelText = null;
-    private Button sendDataChannelButton = null;
 
     private String mChannelArn;
     private String mClientId;
@@ -220,7 +212,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 final String sdp = Event.parseOfferEvent(offerEvent);
 
                 localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
-                recipientClientId = offerEvent.getSenderClientId();
+                recipientClientId = offerEvent.senderClientId;
                 Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
 
                 createSdpAnswer();
@@ -233,7 +225,6 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onSdpAnswer(final Event answerEvent) {
-
                 Log.d(TAG, "SDP answer received from signaling");
 
                 final String sdp = Event.parseSdpEvent(answerEvent);
@@ -246,16 +237,19 @@ public class WebRtcActivity extends AppCompatActivity {
                         super.onCreateFailure(error);
                     }
                 }, sdpAnswer);
-                Log.d(TAG, "Answer Client ID: " + answerEvent.getSenderClientId());
-                peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
+                Log.d(TAG, "Answer Client ID: " + answerEvent.senderClientId);
+                peerConnectionFoundMap.put(answerEvent.senderClientId, localPeer);
                 // Check if ICE candidates are available in the queue and add the candidate
-                handlePendingIceCandidates(answerEvent.getSenderClientId());
+                handlePendingIceCandidates(answerEvent.senderClientId);
 
             }
 
             @Override
             public void onIceCandidate(final Event message) {
                 Log.d(TAG, "Received ICE candidate from remote");
+
+                // if (message == null) return;
+
                 final IceCandidate iceCandidate = Event.parseIceCandidate(message);
                 if (iceCandidate != null) {
                     checkAndAddIceCandidate(message, iceCandidate);
@@ -322,7 +316,7 @@ public class WebRtcActivity extends AppCompatActivity {
                     Log.d(TAG, "Signaling service is connected: " +
                             "Sending offer as viewer to remote peer"); // Viewer
 
-                    createSdpOffer();
+                     createSdpOffer();
                 }
             } else {
                 Log.e(TAG, "Error in connecting to signaling service");
@@ -362,21 +356,21 @@ public class WebRtcActivity extends AppCompatActivity {
         // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
         // Once the peer connection is found, add them directly instead of adding it to the queue.
 
-        if (!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
+        if (!peerConnectionFoundMap.containsKey(message.senderClientId)) {
             Log.d(TAG, "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
 
             // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
-            if (pendingIceCandidatesMap.containsKey(message.getSenderClientId())) {
-                final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.getSenderClientId());
+            if (pendingIceCandidatesMap.containsKey(message.senderClientId)) {
+                final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.senderClientId);
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+                pendingIceCandidatesMap.put(message.senderClientId, pendingIceCandidatesQueueByClientId);
             }
 
             // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
             else {
                 final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = new LinkedList<>();
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+                pendingIceCandidatesMap.put(message.senderClientId, pendingIceCandidatesQueueByClientId);
             }
         }
 
@@ -385,7 +379,7 @@ public class WebRtcActivity extends AppCompatActivity {
         else {
             Log.d(TAG, "Peer connection found already");
             // Remote sent us ICE candidates, add to local peer connection
-            final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
+            final PeerConnection peer = peerConnectionFoundMap.get(message.senderClientId);
             final boolean addIce = peer.addIceCandidate(iceCandidate);
 
             Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
@@ -577,9 +571,6 @@ public class WebRtcActivity extends AppCompatActivity {
 
         remoteView = findViewById(R.id.remote_view);
         remoteView.init(rootEglBase.getEglBaseContext(), null);
-
-        dataChannelText = findViewById(R.id.data_channel_text);
-        sendDataChannelButton = findViewById(R.id.send_data_channel_text);
 
         createNotificationChannel();
     }
@@ -781,15 +772,7 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onStateChange() {
                 Log.d(TAG, "Local Data Channel onStateChange: state: " + localDataChannel.state().toString());
 
-                if (sendDataChannelButton != null) {
-                    runOnUiThread(() -> {
-                        if (localDataChannel.state() == DataChannel.State.OPEN) {
-                            sendDataChannelButton.setEnabled(true);
-                        } else {
-                            sendDataChannelButton.setEnabled(false);
-                        }
-                    });
-                }
+                // TODO: aqui se activaba sendDataChannelButton si localDataChannel esta open o no
             }
 
             @Override
@@ -798,15 +781,15 @@ public class WebRtcActivity extends AppCompatActivity {
             }
         });
 
-        sendDataChannelButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                localDataChannel.send(new DataChannel.Buffer(
-                        ByteBuffer.wrap(dataChannelText.getText().toString()
-                                .getBytes(Charset.defaultCharset())), false));
-                dataChannelText.setText("");
-            }
-        });
+//        sendDataChannelButton.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                localDataChannel.send(new DataChannel.Buffer(
+//                        ByteBuffer.wrap(dataChannelText.getText().toString()
+//                                .getBytes(Charset.defaultCharset())), false));
+//                dataChannelText.setText("");
+//            }
+//        });
     }
 
     // when mobile sdk is viewer

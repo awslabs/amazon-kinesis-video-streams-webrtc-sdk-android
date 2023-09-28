@@ -10,35 +10,35 @@ public class MessageTest {
     public void when_setMessagePayload_then_sameGetReturnsSameMessagePayload() {
         final String testPayload = "test payload";
         final Message message = new Message();
-        message.setMessagePayload(testPayload);
+        message.messagePayload = testPayload;
 
-        assertEquals(testPayload, message.getMessagePayload());
+        assertEquals(testPayload, message.messagePayload);
     }
 
     @Test
     public void when_setAction_then_sameGetReturnsSameAction() {
         final String testAction = "SDP_OFFER";
         final Message message = new Message();
-        message.setAction(testAction);
+        message.action = testAction;
 
-        assertEquals(testAction, message.getAction());
+        assertEquals(testAction, message.action);
     }
 
     @Test
     public void when_setRecipientClientId_then_sameGetReturnsSameRecipientClientId() {
         final String testRecipientClientId = "viewer";
         final Message message = new Message();
-        message.setRecipientClientId(testRecipientClientId);
+        message.recipientClientId = testRecipientClientId;
 
-        assertEquals(testRecipientClientId, message.getRecipientClientId());
+        assertEquals(testRecipientClientId, message.recipientClientId);
     }
 
     @Test
     public void when_setSenderClientId_then_sameGetReturnsSameSenderClientId() {
         final String testSenderClientId = "master";
         final Message message = new Message();
-        message.setSenderClientId(testSenderClientId);
+        message.senderClientId = testSenderClientId;
 
-        assertEquals(testSenderClientId, message.getSenderClientId());
+        assertEquals(testSenderClientId, message.senderClientId);
     }
 }

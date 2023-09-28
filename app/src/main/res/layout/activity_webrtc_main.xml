@@ -26,29 +26,4 @@
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|end" />
     </FrameLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_weight="1"
-        android:orientation="horizontal">
-
-        <EditText
-            android:id="@+id/data_channel_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="9"
-            android:hint="Data to be sent to peer"
-            tools:ignore="Autofill,HardcodedText,NestedWeights"
-            android:inputType="text" />
-
-        <Button
-            android:id="@+id/send_data_channel_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Send"
-            android:layout_weight="1"
-            tools:ignore="HardcodedText" />
-    </LinearLayout>
 </LinearLayout>

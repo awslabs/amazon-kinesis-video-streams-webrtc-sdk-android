@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'jacoco'
+    id 'org.jetbrains.kotlin.android'
 }
 
 android {
@@ -43,15 +44,15 @@ dependencies {
     implementation 'org.awaitility:awaitility:4.2.0'
     implementation 'org.json:json:20190722'
     implementation 'com.google.guava:guava:28.1-android'
-    implementation 'com.google.code.gson:gson:2.8.9'
-    implementation 'org.apache.commons:commons-lang3:3.9'
-    implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:1.20') {
-        exclude module: 'javax.inject'
-    }
-
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.squareup.moshi:moshi-kotlin:1.15.0'
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+    implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:2.1.3')
+    implementation 'io.github.webrtc-sdk:android:114.5735.03'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.11.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
@@ -82,10 +83,12 @@ task checkForLibWebRTC() {
 
         if (!webrtcFound) {
             throw new RuntimeException(
-                    "Unable to find Google WebRTC. You will need to either: (1) Build libwebrtc on " +
+                    "Unable to find Google WebRTC. You will need to either: (1) build libwebrtc on " +
                     "your own following directions here https://webrtc.github.io/webrtc-org/native-code/android/ " +
                     "to create the AAR, and place it in the app/libs folder so they can be properly referenced in the " +
-                    "build.gradle file or (2) Reference another public repository which vends the android binaries.
+                    "build.gradle file or (2) acquire a pre-built binary for libwebrtc android " +
+                    "from any other means. For example, https://central.sonatype.com/artifact/io.github.webrtc-sdk/android provides " +
+                    "these libraries, or you can get them from somewhere else."
             )
         }
     }
