@@ -1,6 +1,5 @@
 package com.amazonaws.kinesisvideo.demoapp.activity;
 
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CAMERA_FRONT_FACING;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CLIENT_ID;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_PASSWORD;
@@ -8,11 +7,15 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_URI;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_USER_NAME;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_IS_MASTER;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_MEDIA_SOURCE;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_MEDIA_URL;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_REGION;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_SEND_AUDIO;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.MEDIA_SOURCE_CAMERA_FRONT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_STREAM_ARN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.MEDIA_SOURCE_STREAM;
 
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
@@ -52,6 +55,7 @@ import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
+import com.amazonaws.kinesisvideo.webrtc.URLCapturer;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideowebrtcstorage.AWSKinesisVideoWebRTCStorageClient;
 import com.amazonaws.services.kinesisvideowebrtcstorage.model.JoinStorageSessionRequest;
@@ -100,8 +104,6 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import javax.microedition.khronos.egl.EGLContext;
 
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
@@ -158,7 +160,8 @@ public class WebRtcActivity extends AppCompatActivity {
     private String mWssEndpoint;
     private String mRegion;
 
-    private boolean mCameraFacingFront = true;
+    private String mMediaSource = MEDIA_SOURCE_CAMERA_FRONT;
+    private String mMediaURL;
 
     private AWSCredentials mCreds = null;
 
@@ -489,7 +492,8 @@ public class WebRtcActivity extends AppCompatActivity {
         ArrayList<Integer> mTTLs = intent.getIntegerArrayListExtra(KEY_ICE_SERVER_TTL);
         ArrayList<List<String>> mUrisList = (ArrayList<List<String>>) intent.getSerializableExtra(KEY_ICE_SERVER_URI);
         mRegion = intent.getStringExtra(KEY_REGION);
-        mCameraFacingFront = intent.getBooleanExtra(KEY_CAMERA_FRONT_FACING, true);
+        mMediaSource = intent.getStringExtra(KEY_MEDIA_SOURCE);
+        mMediaURL = intent.getStringExtra(KEY_MEDIA_URL);
 
         rootEglBase = EglBase.create();
 
@@ -595,14 +599,24 @@ public class WebRtcActivity extends AppCompatActivity {
     }
 
     private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
+        Logging.d(TAG, "Preparing stream capture.");
+
+        if(mMediaSource.equals(MEDIA_SOURCE_STREAM)){
+            return new URLCapturer(mMediaURL,
+                    new String[]{
+                            "-vvv",
+                            "--rtsp-tcp"
+                    },
+                    "16:9");
+        }
 
         final String[] deviceNames = enumerator.getDeviceNames();
 
-        Logging.d(TAG, "Enumerating cameras");
+        Logging.d(TAG, "Enumerating cameras ");
 
         for (String deviceName : deviceNames) {
 
-            if (mCameraFacingFront ? enumerator.isFrontFacing(deviceName) : enumerator.isBackFacing(deviceName)) {
+            if (mMediaSource.equals(MEDIA_SOURCE_CAMERA_FRONT) ? enumerator.isFrontFacing(deviceName) : enumerator.isBackFacing(deviceName)) {
 
                 Logging.d(TAG, "Camera created");
                 VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);

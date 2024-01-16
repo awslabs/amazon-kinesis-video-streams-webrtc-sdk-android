@@ -85,10 +85,43 @@ task checkForLibWebRTC() {
                     "Unable to find Google WebRTC. You will need to either: (1) Build libwebrtc on " +
                     "your own following directions here https://webrtc.github.io/webrtc-org/native-code/android/ " +
                     "to create the AAR, and place it in the app/libs folder so they can be properly referenced in the " +
-                    "build.gradle file or (2) Reference another public repository which vends the android binaries.
+                    "build.gradle file or (2) Reference another public repository which vends the android binaries."
             )
         }
     }
 }
 
-preBuild.dependsOn checkForLibWebRTC
+// Check that libVLC is present during build.
+task checkForLibVLC() {
+    doLast {
+        boolean vlcFound = false
+
+        // Check dependencies by name
+        configurations.implementation.dependencies.forEach(dependency -> {
+            // Check the name of the dependency, and also the name of the group
+            if ((dependency.group && dependency.group.contains("libvlc") || dependency.name.contains("libvlc"))) {
+                vlcFound = true
+            }
+        })
+
+        // Check file dependencies
+        if (!vlcFound) {
+            fileTree(dir: 'libs', include: ['*.jar', '*.aar']).forEach(file -> {
+                if (file.name.contains("libvlc")) {
+                    vlcFound = true
+                }
+            })
+        }
+
+        if (!vlcFound) {
+            throw new RuntimeException(
+                    "Unable to find libVLC. You will need to either: (1) Build libVLC on " +
+                    "your own following directions here https://github.com/videolan/vlc-android " +
+                    "to create the AAR, and place it in the app/libs folder so they can be properly referenced in the " +
+                    "build.gradle file or (2) Reference another public repository which vends the android binaries."
+            )
+        }
+    }
+}
+
+preBuild.dependsOn checkForLibWebRTC, checkForLibVLC

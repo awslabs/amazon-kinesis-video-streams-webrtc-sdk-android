@@ -1,7 +1,6 @@
 package com.amazonaws.kinesisvideo.demoapp.fragment;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
@@ -11,7 +10,7 @@ import android.util.SparseBooleanArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -19,7 +18,6 @@ import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Spinner;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -55,7 +53,6 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 public class StreamWebRtcConfigurationFragment extends Fragment {
     private static final String TAG = StreamWebRtcConfigurationFragment.class.getSimpleName();
@@ -72,7 +69,12 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_ICE_SERVER_PASSWORD = "iceServerPassword";
     public static final String KEY_ICE_SERVER_TTL = "iceServerTTL";
     public static final String KEY_ICE_SERVER_URI = "iceServerUri";
-    public static final String KEY_CAMERA_FRONT_FACING = "cameraFrontFacing";
+    public static final String KEY_MEDIA_SOURCE = "MediaSource";
+    public static final String KEY_MEDIA_URL = "MediaURL";
+
+    public static final String MEDIA_SOURCE_CAMERA_FRONT = "Front Camera";
+    public static final String MEDIA_SOURCE_CAMERA_BACK = "Back Camera";
+    public static final String MEDIA_SOURCE_STREAM = "Stream URL";
 
     private static final String KEY_SEND_VIDEO = "sendVideo";
     public static final String KEY_SEND_AUDIO = "sendAudio";
@@ -91,7 +93,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private EditText mChannelName;
     private EditText mClientId;
     private EditText mRegion;
-    private Spinner mCameras;
+    private Spinner mSources;
+    private EditText mStreamURL;
     private CheckBox mIngestMedia;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
@@ -167,15 +170,32 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mOptions.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
         mOptions.setItemChecked(0, true);
 
-        mCameras = view.findViewById(R.id.camera_spinner);
+        mSources = view.findViewById(R.id.source_spinner);
 
-        final List<String> cameraList = Arrays.asList("Front Camera", "Back Camera");
+        final List<String> sourceList = Arrays.asList(
+                MEDIA_SOURCE_CAMERA_FRONT,
+                MEDIA_SOURCE_CAMERA_BACK,
+                MEDIA_SOURCE_STREAM
+        );
 
         if (getContext() != null) {
-            mCameras.setAdapter(new ArrayAdapter<>(getContext(),
+            mSources.setAdapter(new ArrayAdapter<>(getContext(),
                     android.R.layout.simple_spinner_dropdown_item,
-                    cameraList));
+                    sourceList));
         }
+
+        mStreamURL = view.findViewById(R.id.url);
+        mSources.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                mStreamURL.setVisibility(sourceList.get(position).equals(MEDIA_SOURCE_STREAM)? View.VISIBLE: View.GONE);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                mStreamURL.setVisibility(View.GONE);
+            }
+        });
     }
 
     private void setRegionFromCognito() {
@@ -298,7 +318,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             extras.putBoolean(KEY_OF_OPTIONS[i], checked.get(i));
         }
 
-        extras.putBoolean(KEY_CAMERA_FRONT_FACING, mCameras.getSelectedItem().equals("Front Camera"));
+        extras.putString(KEY_MEDIA_SOURCE, mSources.getSelectedItem().toString());
+        extras.putString(KEY_MEDIA_URL, mStreamURL.getText().toString());
 
         return extras;
     }
