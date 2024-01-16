@@ -52,7 +52,13 @@
     a. Build libwebrtc yourself, following https://webrtc.github.io/webrtc-org/native-code/android/#getting-the-code. After it's been built, place the `.aar` file in [libs](app/libs).
     
     b. Acquire a pre-built binary of libwebrtc and import it. 
-    
+
+ 4. Import libVLC. Choose one of the following:
+
+    a. Build libVLC yourself, following https://github.com/videolan/vlc-android. After it's been built, place the `.aar` file in [libs](app/libs).
+
+    b. Acquire a pre-built binary of libVLC and import it.
+
  5. Click gradle __Sync__ and __Build__
  6. Run the demo application in simulator or in Android device (connected through USB).
 
@@ -67,8 +73,9 @@ Once login is successful, you will entering the following channel information to
 
   1. Enter a channel name: e.g. `demo-channel`
   2. Enter AWS region: e.g. `us-west-2`
-  3. Select `audio` if you would like to send both audio or video data.
-  4. Optionally, when using it in `viewer` mode, you can enter a unique `Client Id` . Client ID is required only if multiple viewers are connected to a channel. This helps channel's master identify respective viewers.
+  3. Choose the media source as one of the cameras or a stream. When stream is selected, enter the URL as well.
+  4. Select `audio` if you would like to send both audio or video data.
+  5. Optionally, when using it in `viewer` mode, you can enter a unique `Client Id` . Client ID is required only if multiple viewers are connected to a channel. This helps channel's master identify respective viewers.
 
  To verify peer to peer streaming, do any of the following setup. In these setup, ensure that  the _signaling channel name_, _region_, _viewer ID_,  and the AWS account ID are the __same__.
 
