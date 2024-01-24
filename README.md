@@ -90,6 +90,18 @@ Once login is successful, you will entering the following channel information to
   * Start the web browser using the [Javascript SDK](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-js) and start it as `viewer`.
   * Verify media showing up from the Android device to the browser.
 
+## 6. ICE Candidate Trickling
+
+Candidate trickling is a technique through which a caller may incrementally provide candidates to the callee after the initial offer has been dispatched; the semantics of "Trickle ICE" are defined in [RFC8838].
+
+Trickle ICE is the default behavior within the Kinesis Video Stream WebRTC SDK for Android since it reduces the time it takes for the ICE negotiation process.
+However, in the case that it needs to be disabled, locate the RTCConfiguration property called ContinualGatheringPolicy and change it to GATHER_ONCE instead of GATHER_CONTINUALLY (default).
+
+```java
+PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration();
+rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
+```
+
 ## License
 
 This library is licensed under the [Apache 2.0 License](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/blob/master/LICENSE).
