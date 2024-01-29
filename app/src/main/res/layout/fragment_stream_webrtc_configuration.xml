@@ -93,7 +93,20 @@
             android:hint="Stream url (Needed)"
             android:inputType="text"
             android:visibility="gone"
+            android:padding="5dp"
             tools:ignore="Autofill,HardcodedText" />
+
+        <TextView
+            android:id="@+id/url_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Invalid RTSP URL !"
+            android:layout_marginStart="20dp"
+            android:background="#f00"
+            android:paddingLeft="5dp"
+            android:paddingRight="5dp"
+            android:visibility="gone"
+            tools:ignore="HardcodedText" />
 
         <Space
             android:layout_width="match_parent"

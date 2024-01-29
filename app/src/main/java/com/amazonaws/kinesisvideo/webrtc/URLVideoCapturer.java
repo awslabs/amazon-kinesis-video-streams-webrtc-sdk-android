@@ -21,7 +21,7 @@ import java.util.Arrays;
  * class also leverages the SurfaceTextureHelper to do the heavy lifting of grabbing and encoding video
  * frame using an intermediate OpenGL texture. It also uses libVLC(User must add) to playback streams on the texture.
  */
-public class URLCapturer implements VideoCapturer, VideoSink {
+public class URLVideoCapturer implements VideoCapturer, VideoSink {
     private String url;
     private String[] options;
     private String aspectRatio;
@@ -33,7 +33,7 @@ public class URLCapturer implements VideoCapturer, VideoSink {
      * Public constructor that accepts the stream url.
      * @param url Media stream url.
      */
-    public URLCapturer(String url, String[] options, String aspectRatio){
+    public URLVideoCapturer(String url, String[] options, String aspectRatio){
         this.url = url;
         this.options = options;
         this.aspectRatio = aspectRatio;
@@ -59,7 +59,7 @@ public class URLCapturer implements VideoCapturer, VideoSink {
         surfaceTextureHelper.setTextureSize(width, height);
 
         // Use libVLC to play the stream onto the texture.
-        LibVLC libVlc = new LibVLC(context, Arrays.asList(options));
+        LibVLC libVlc = new LibVLC(context, new ArrayList<>(Arrays.asList(options)));
 
         MediaPlayer mediaPlayer = new MediaPlayer(libVlc);
         IVLCVout vOut = mediaPlayer.getVLCVout();

@@ -55,7 +55,7 @@ import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
-import com.amazonaws.kinesisvideo.webrtc.URLCapturer;
+import com.amazonaws.kinesisvideo.webrtc.URLVideoCapturer;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideowebrtcstorage.AWSKinesisVideoWebRTCStorageClient;
 import com.amazonaws.services.kinesisvideowebrtcstorage.model.JoinStorageSessionRequest;
@@ -589,26 +589,22 @@ public class WebRtcActivity extends AppCompatActivity {
     }
 
     private VideoCapturer createVideoCapturer() {
-
-        final VideoCapturer videoCapturer;
-
-        Logging.d(TAG, "Create camera");
-        videoCapturer = createCameraCapturer(new Camera1Enumerator(false));
-
-        return videoCapturer;
-    }
-
-    private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
-        Logging.d(TAG, "Preparing stream capture.");
+        Logging.d(TAG, "Create video capturer");
 
         if(mMediaSource.equals(MEDIA_SOURCE_STREAM)){
-            return new URLCapturer(mMediaURL,
+            return new URLVideoCapturer(mMediaURL,
                     new String[]{
                             "-vvv",
                             "--rtsp-tcp"
                     },
                     "16:9");
         }
+
+        return createCameraCapturer(new Camera1Enumerator(false));
+    }
+
+    private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
+        Logging.d(TAG, "Preparing stream capture.");
 
         final String[] deviceNames = enumerator.getDeviceNames();
 

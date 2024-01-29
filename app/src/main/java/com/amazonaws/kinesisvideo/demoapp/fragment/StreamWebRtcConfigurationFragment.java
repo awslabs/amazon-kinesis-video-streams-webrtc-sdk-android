@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.util.SparseBooleanArray;
 import android.view.LayoutInflater;
@@ -53,6 +55,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class StreamWebRtcConfigurationFragment extends Fragment {
     private static final String TAG = StreamWebRtcConfigurationFragment.class.getSimpleName();
@@ -89,6 +92,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             KEY_SEND_AUDIO,
     };
 
+    private static final Pattern RTSP_REGEX_PATTERN = Pattern.compile("^(rtsp):\\/\\/([^\\s@\\/:]+:[^\\s@\\/:]+@)?([\\d\\w.]+):(\\d)+/(\\S)+$");
 
     private EditText mChannelName;
     private EditText mClientId;
@@ -184,7 +188,23 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                     sourceList));
         }
 
+        View mStreamURLMessage = view.findViewById(R.id.url_message);
         mStreamURL = view.findViewById(R.id.url);
+        mStreamURL.addTextChangedListener(new TextWatcher(){
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+
+            @Override
+            public void onTextChanged(@NonNull CharSequence s, int start, int before, int count) {
+                boolean validRTSP = RTSP_REGEX_PATTERN.matcher(s).matches();
+                mStreamURL.setBackgroundResource(validRTSP? 0: R.drawable.border);
+                mStreamURLMessage.setVisibility(validRTSP? View.GONE: View.VISIBLE);
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) { }
+        });
+
         mSources.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
