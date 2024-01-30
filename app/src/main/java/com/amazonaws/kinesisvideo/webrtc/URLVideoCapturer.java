@@ -19,7 +19,7 @@ import java.util.Arrays;
 /**
  * This class implements a VideoCapturer for media streams. Similar to how camera capturers work, this
  * class also leverages the SurfaceTextureHelper to do the heavy lifting of grabbing and encoding video
- * frame using an intermediate OpenGL texture. It also uses libVLC(User must add) to playback streams on the texture.
+ * frames using an intermediate OpenGL texture. It also uses libVLC(User must add) to playback streams on the texture.
  */
 public class URLVideoCapturer implements VideoCapturer, VideoSink {
     private String url;
@@ -30,15 +30,25 @@ public class URLVideoCapturer implements VideoCapturer, VideoSink {
     private CapturerObserver capturerObserver;
 
     /**
-     * Public constructor that accepts the stream url.
-     * @param url Media stream url.
+     * Public constructor accepting the stream url and libVLC configuration.
+     *
+     * @param url         Media stream url.
+     * @param options     List of options to pass on to libVLC.
+     * @param aspectRatio Aspect ratio to configure for libVLC.
      */
-    public URLVideoCapturer(String url, String[] options, String aspectRatio){
+    public URLVideoCapturer(String url, String[] options, String aspectRatio) {
         this.url = url;
         this.options = options;
         this.aspectRatio = aspectRatio;
     }
 
+    /**
+     * Initializes this object by setting up the SurfaceTextureHelper.
+     *
+     * @param surfaceTextureHelper The SurfaceTextureHelper instance to use.
+     * @param context              Android Context object to be used by libVLC.
+     * @param capturerObserver     An instance of CapturerObserver to be notified about video frames.
+     */
     @Override
     public void initialize(SurfaceTextureHelper surfaceTextureHelper, Context context, CapturerObserver capturerObserver) {
         this.surfaceTextureHelper = surfaceTextureHelper;
@@ -48,11 +58,23 @@ public class URLVideoCapturer implements VideoCapturer, VideoSink {
         surfaceTextureHelper.startListening(this);
     }
 
+    /**
+     * Callback to be used by the SurfaceTextureHelper when a video frame is ready.
+     *
+     * @param videoFrame VideoFrame from the SurfaceTextureHelper.
+     */
     @Override
     public void onFrame(VideoFrame videoFrame) {
         capturerObserver.onFrameCaptured(videoFrame);
     }
 
+    /**
+     * Begins the stream capture at specified resolution.
+     *
+     * @param width     Width of the frame.
+     * @param height    Height of the frame.
+     * @param framerate This parameter is ignored.
+     */
     @Override
     public void startCapture(int width, int height, int framerate) {
         capturerObserver.onCapturerStarted(true);
@@ -67,23 +89,36 @@ public class URLVideoCapturer implements VideoCapturer, VideoSink {
         vOut.setVideoSurface(surfaceTextureHelper.getSurfaceTexture());
         vOut.attachViews();
 
-        Media videoMedia = new Media (libVlc, Uri.parse(url));
+        Media videoMedia = new Media(libVlc, Uri.parse(url));
         mediaPlayer.setMedia(videoMedia);
         mediaPlayer.setAspectRatio(aspectRatio);
         mediaPlayer.play();
     }
 
+    /**
+     * Stops the video capture, but does not tear down the setup.
+     */
     @Override
-    public void stopCapture()  {
+    public void stopCapture() {
         capturerObserver.onCapturerStopped();
     }
 
+    /**
+     * Changes the capture format. Stream will be stopped and started again with new configuration.
+     *
+     * @param width     Width of the frame.
+     * @param height    Height of the frame.
+     * @param framerate This parameter is ignored.
+     */
     @Override
     public void changeCaptureFormat(int width, int height, int framerate) {
         stopCapture();
         startCapture(width, height, framerate);
     }
 
+    /**
+     * Disposes off this video capturer and the related SurfaceTextureHelper.
+     */
     @Override
     public void dispose() {
         surfaceTextureHelper.dispose();
@@ -93,6 +128,11 @@ public class URLVideoCapturer implements VideoCapturer, VideoSink {
         capturerObserver = null;
     }
 
+    /**
+     * Always returns false since this is not a screen casting.
+     *
+     * @return false.
+     */
     @Override
     public boolean isScreencast() {
         return false;
