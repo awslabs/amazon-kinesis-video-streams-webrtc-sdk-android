@@ -43,7 +43,7 @@ dependencies {
     implementation 'org.awaitility:awaitility:4.2.0'
     implementation 'org.json:json:20190722'
     implementation 'com.google.guava:guava:28.1-android'
-    implementation 'com.google.code.gson:gson:2.8.9'
+    implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.apache.commons:commons-lang3:3.9'
     implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:2.2.0-M1') {
         exclude module: 'javax.inject'
@@ -54,7 +54,7 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
 
 // Check that libwebrtc is present during build
