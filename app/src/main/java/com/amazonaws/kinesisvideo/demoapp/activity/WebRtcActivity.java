@@ -14,11 +14,13 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.os.Build;
@@ -37,6 +39,7 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -100,8 +103,6 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import javax.microedition.khronos.egl.EGLContext;
 
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
@@ -699,7 +700,10 @@ public class WebRtcActivity extends AppCompatActivity {
                             final NotificationManagerCompat notificationManager = NotificationManagerCompat.from(getApplicationContext());
 
                             // notificationId is a unique int for each notification that you must define
-                            notificationManager.notify(mNotificationId++, builder.build());
+                            if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                notificationManager.notify(mNotificationId++, builder.build());
+                                return;
+                            }
 
                             Toast.makeText(getApplicationContext(), "New message from peer, check notification.", Toast.LENGTH_SHORT).show();
                         });
@@ -760,7 +764,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 Log.e(TAG, "Add audio track failed");
             }
 
-            if (stream.audioTracks.size() > 0) {
+            if (!stream.audioTracks.isEmpty()) {
                 localPeer.addTrack(stream.audioTracks.get(0), Collections.singletonList(stream.getId()));
                 Log.d(TAG, "Sending audio track");
             }
@@ -783,11 +787,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 if (sendDataChannelButton != null) {
                     runOnUiThread(() -> {
-                        if (localDataChannel.state() == DataChannel.State.OPEN) {
-                            sendDataChannelButton.setEnabled(true);
-                        } else {
-                            sendDataChannelButton.setEnabled(false);
-                        }
+                        sendDataChannelButton.setEnabled(localDataChannel.state() == DataChannel.State.OPEN);
                     });
                 }
             }
@@ -880,9 +880,9 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private void addRemoteStreamToVideoView(MediaStream stream) {
 
-        final VideoTrack remoteVideoTrack = stream.videoTracks != null && stream.videoTracks.size() > 0 ? stream.videoTracks.get(0) : null;
+        final VideoTrack remoteVideoTrack = stream.videoTracks != null && !stream.videoTracks.isEmpty() ? stream.videoTracks.get(0) : null;
 
-        AudioTrack remoteAudioTrack = stream.audioTracks != null && stream.audioTracks.size() > 0 ? stream.audioTracks.get(0) : null;
+        AudioTrack remoteAudioTrack = stream.audioTracks != null && !stream.audioTracks.isEmpty() ? stream.audioTracks.get(0) : null;
 
         if (remoteAudioTrack != null) {
             remoteAudioTrack.setEnabled(true);

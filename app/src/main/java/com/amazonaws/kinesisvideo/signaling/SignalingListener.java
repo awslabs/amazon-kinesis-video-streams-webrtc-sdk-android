@@ -7,7 +7,8 @@ import android.util.Log;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.google.gson.Gson;
 
-import javax.websocket.MessageHandler;
+import jakarta.websocket.MessageHandler;
+
 
 public abstract class SignalingListener implements Signaling {
 
