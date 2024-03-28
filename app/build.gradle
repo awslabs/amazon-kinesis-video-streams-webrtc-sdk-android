@@ -20,6 +20,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
 
@@ -27,6 +28,7 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    namespace 'com.amazonaws.kinesisvideo.demoapp'
 }
 
 dependencies {
@@ -45,7 +47,7 @@ dependencies {
     implementation 'com.google.guava:guava:28.1-android'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.apache.commons:commons-lang3:3.9'
-    implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:2.2.0-M1') {
+    implementation('org.glassfish.tyrus.bundles:tyrus-standalone-client:2.1.4') {
         exclude module: 'javax.inject'
     }
 
