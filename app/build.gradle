@@ -7,6 +7,8 @@ android {
     compileSdk 34
 
     defaultConfig {
+        namespace("com.amazonaws.kinesisvideo.demoapp")
+
         applicationId "com.amazonaws.kinesisvideo.webrtc_sdk_android"
         minSdk 29
         targetSdk 34
