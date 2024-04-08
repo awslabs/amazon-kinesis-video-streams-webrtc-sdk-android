@@ -1,13 +1,13 @@
 package com.amazonaws.kinesisvideo.signaling;
 
-
 import android.util.Base64;
 import android.util.Log;
-
-import com.amazonaws.kinesisvideo.signaling.model.Event;
+import androidx.annotation.NonNull;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
 import com.google.gson.Gson;
 
-import javax.websocket.MessageHandler;
+import com.amazonaws.kinesisvideo.signaling.model.Event;
 
 public abstract class SignalingListener implements Signaling {
 
@@ -15,21 +15,21 @@ public abstract class SignalingListener implements Signaling {
 
     private final Gson gson = new Gson();
 
-    private final MessageHandler messageHandler = new MessageHandler.Whole<String>() {
+    private final WebSocketListener messageHandler = new WebSocketListener() {
 
         @Override
-        public void onMessage(final String message) {
-            if (message.isEmpty()) {
+        public void onMessage(@NonNull WebSocket webSocket, String text) {
+            if (text.isEmpty()) {
                 return;
             }
 
-            Log.d(TAG, "Received message: " + message);
+            Log.d(TAG, "Received message: " + text);
 
-            if (!message.contains("messagePayload")) {
+            if (!text.contains("messagePayload")) {
                 return;
             }
 
-            final Event evt = gson.fromJson(message, Event.class);
+            final Event evt = gson.fromJson(text, Event.class);
 
             if (evt == null || evt.getMessageType() == null || evt.getMessagePayload().isEmpty()) {
                 return;
@@ -59,7 +59,7 @@ public abstract class SignalingListener implements Signaling {
         }
     };
 
-    public MessageHandler getMessageHandler() {
+    public WebSocketListener getMessageHandler() {
         return messageHandler;
     }
 }

@@ -4,7 +4,6 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CLIENT_ID;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_PASSWORD;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_TTL;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_URI;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_USER_NAME;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_IS_MASTER;
@@ -47,7 +46,7 @@ import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.signaling.SignalingListener;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
-import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClient;
+import com.amazonaws.kinesisvideo.signaling.okhttp.SignalingServiceWebSocketClient;
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
@@ -100,8 +99,6 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import javax.microedition.khronos.egl.EGLContext;
 
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
@@ -172,14 +169,14 @@ public class WebRtcActivity extends AppCompatActivity {
      * offer/answer for a peer connection has been received and sent, the PeerConnection is added
      * to this map.
      */
-    private final HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<String, PeerConnection>();
+    private final HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<>();
 
     /**
      * Only used when we are master. Mapping of the peer's sender id to its received ICE candidates.
      * Since we can receive ICE Candidates before we have sent the answer, we hold ICE candidates in
      * this queue until after we send the answer and the peer connection is established.
      */
-    private final HashMap<String, Queue<IceCandidate>> pendingIceCandidatesMap = new HashMap<String, Queue<IceCandidate>>();
+    private final HashMap<String, Queue<IceCandidate>> pendingIceCandidatesMap = new HashMap<>();
 
     private void initWsConnection() {
 
@@ -350,6 +347,7 @@ public class WebRtcActivity extends AppCompatActivity {
         while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
             final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
             final PeerConnection peer = peerConnectionFoundMap.get(clientId);
+            assert peer != null;
             final boolean addIce = peer.addIceCandidate(iceCandidate);
             Log.d(TAG, "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
             pendingIceCandidatesQueueByClientId.remove();
@@ -366,18 +364,19 @@ public class WebRtcActivity extends AppCompatActivity {
             Log.d(TAG, "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
 
             // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
+            final Queue<IceCandidate> pendingIceCandidatesQueueByClientId;
             if (pendingIceCandidatesMap.containsKey(message.getSenderClientId())) {
-                final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.getSenderClientId());
-                pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+                pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.getSenderClientId());
             }
 
             // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
             else {
-                final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = new LinkedList<>();
-                pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+                pendingIceCandidatesQueueByClientId = new LinkedList<>();
             }
+
+            assert pendingIceCandidatesQueueByClientId != null;
+            pendingIceCandidatesQueueByClientId.add(iceCandidate);
+            pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
         }
 
         // This is the case where peer connection is established and ICE candidates are received for the established
@@ -386,6 +385,7 @@ public class WebRtcActivity extends AppCompatActivity {
             Log.d(TAG, "Peer connection found already");
             // Remote sent us ICE candidates, add to local peer connection
             final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
+            assert peer != null;
             final boolean addIce = peer.addIceCandidate(iceCandidate);
 
             Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
@@ -486,7 +486,6 @@ public class WebRtcActivity extends AppCompatActivity {
         isAudioSent = intent.getBooleanExtra(KEY_SEND_AUDIO, false);
         ArrayList<String> mUserNames = intent.getStringArrayListExtra(KEY_ICE_SERVER_USER_NAME);
         ArrayList<String> mPasswords = intent.getStringArrayListExtra(KEY_ICE_SERVER_PASSWORD);
-        ArrayList<Integer> mTTLs = intent.getIntegerArrayListExtra(KEY_ICE_SERVER_TTL);
         ArrayList<List<String>> mUrisList = (ArrayList<List<String>>) intent.getSerializableExtra(KEY_ICE_SERVER_URI);
         mRegion = intent.getStringExtra(KEY_REGION);
         mCameraFacingFront = intent.getBooleanExtra(KEY_CAMERA_FRONT_FACING, true);
@@ -506,6 +505,8 @@ public class WebRtcActivity extends AppCompatActivity {
             for (int i = 0; i < mUrisList.size(); i++) {
                 final String turnServer = mUrisList.get(i).toString();
                 if (turnServer != null) {
+                    assert mUserNames != null;
+                    assert mPasswords != null;
                     final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
                             .setUsername(mUserNames.get(i))
                             .setPassword(mPasswords.get(i))
@@ -677,6 +678,7 @@ public class WebRtcActivity extends AppCompatActivity {
                         Log.d(TAG, "Remote Data Channel onStateChange: state: " + dataChannel.state().toString());
                     }
 
+                    @SuppressLint("MissingPermission")
                     @Override
                     public void onMessage(DataChannel.Buffer buffer) {
                         runOnUiThread(() -> {
@@ -709,14 +711,12 @@ public class WebRtcActivity extends AppCompatActivity {
         });
 
         if (localPeer != null) {
-            printStatsExecutor.scheduleWithFixedDelay(() -> {
-                localPeer.getStats(rtcStatsReport -> {
-                    final Map<String, RTCStats> statsMap = rtcStatsReport.getStatsMap();
-                    for (final Map.Entry<String, RTCStats> entry : statsMap.entrySet()) {
-                        Log.d(TAG, "Stats: " + entry.getKey() + ", " + entry.getValue());
-                    }
-                });
-            }, 0, 10, TimeUnit.SECONDS);
+            printStatsExecutor.scheduleWithFixedDelay(() -> localPeer.getStats(rtcStatsReport -> {
+                final Map<String, RTCStats> statsMap = rtcStatsReport.getStatsMap();
+                for (final Map.Entry<String, RTCStats> entry : statsMap.entrySet()) {
+                    Log.d(TAG, "Stats: " + entry.getKey() + ", " + entry.getValue());
+                }
+            }), 0, 10, TimeUnit.SECONDS);
         }
 
         addDataChannelToLocalPeer();
@@ -760,7 +760,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 Log.e(TAG, "Add audio track failed");
             }
 
-            if (stream.audioTracks.size() > 0) {
+            if (!stream.audioTracks.isEmpty()) {
                 localPeer.addTrack(stream.audioTracks.get(0), Collections.singletonList(stream.getId()));
                 Log.d(TAG, "Sending audio track");
             }
@@ -798,14 +798,11 @@ public class WebRtcActivity extends AppCompatActivity {
             }
         });
 
-        sendDataChannelButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                localDataChannel.send(new DataChannel.Buffer(
-                        ByteBuffer.wrap(dataChannelText.getText().toString()
-                                .getBytes(Charset.defaultCharset())), false));
-                dataChannelText.setText("");
-            }
+        sendDataChannelButton.setOnClickListener(view -> {
+            localDataChannel.send(new DataChannel.Buffer(
+                    ByteBuffer.wrap(dataChannelText.getText().toString()
+                            .getBytes(Charset.defaultCharset())), false));
+            dataChannelText.setText("");
         });
     }
 
@@ -880,9 +877,9 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private void addRemoteStreamToVideoView(MediaStream stream) {
 
-        final VideoTrack remoteVideoTrack = stream.videoTracks != null && stream.videoTracks.size() > 0 ? stream.videoTracks.get(0) : null;
+        final VideoTrack remoteVideoTrack = stream.videoTracks != null && !stream.videoTracks.isEmpty() ? stream.videoTracks.get(0) : null;
 
-        AudioTrack remoteAudioTrack = stream.audioTracks != null && stream.audioTracks.size() > 0 ? stream.audioTracks.get(0) : null;
+        AudioTrack remoteAudioTrack = stream.audioTracks != null && !stream.audioTracks.isEmpty() ? stream.audioTracks.get(0) : null;
 
         if (remoteAudioTrack != null) {
             remoteAudioTrack.setEnabled(true);

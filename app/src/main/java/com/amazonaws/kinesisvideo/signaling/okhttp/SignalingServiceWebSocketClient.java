@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.signaling.tyrus;
+package com.amazonaws.kinesisvideo.signaling.okhttp;
 
 import android.util.Base64;
 import android.util.Log;
@@ -6,8 +6,6 @@ import android.util.Log;
 import com.amazonaws.kinesisvideo.signaling.SignalingListener;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.google.gson.Gson;
-
-import org.glassfish.tyrus.client.ClientManager;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -29,8 +27,8 @@ public class SignalingServiceWebSocketClient {
     public SignalingServiceWebSocketClient(final String uri, final SignalingListener signalingListener,
                                            final ExecutorService executorService) {
         Log.d(TAG, "Connecting to URI " + uri + " as master");
-        websocketClient = new WebSocketClient(uri, new ClientManager(), signalingListener, executorService);
         this.executorService = executorService;
+        websocketClient = new WebSocketClient(uri, signalingListener);
     }
 
     public boolean isOpen() {
@@ -38,30 +36,20 @@ public class SignalingServiceWebSocketClient {
     }
 
     public void sendSdpOffer(final Message offer) {
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                if (offer.getAction().equalsIgnoreCase("SDP_OFFER")) {
-
-                    Log.d(TAG, "Sending Offer");
-
-                    send(offer);
-                }
+        executorService.submit(() -> {
+            if (offer.getAction().equalsIgnoreCase("SDP_OFFER")) {
+                Log.d(TAG, "Sending Offer");
+                send(offer);
             }
         });
     }
 
     public void sendSdpAnswer(final Message answer) {
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                if (answer.getAction().equalsIgnoreCase("SDP_ANSWER")) {
-
-                    Log.d(TAG, "Answer sent " + new String(Base64.decode(answer.getMessagePayload().getBytes(),
-                            Base64.NO_WRAP | Base64.URL_SAFE)));
-
-                    send(answer);
-                }
+        executorService.submit(() -> {
+            if (answer.getAction().equalsIgnoreCase("SDP_ANSWER")) {
+                Log.d(TAG, "Answer sent " + new String(Base64.decode(answer.getMessagePayload().getBytes(),
+                        Base64.NO_WRAP | Base64.URL_SAFE)));
+                send(answer);
             }
         });
     }
@@ -71,18 +59,12 @@ public class SignalingServiceWebSocketClient {
             if (candidate.getAction().equalsIgnoreCase("ICE_CANDIDATE")) {
                 send(candidate);
             }
-
             Log.d(TAG, "Sent Ice candidate message");
         });
     }
 
     public void disconnect() {
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                websocketClient.disconnect();
-            }
-        });
+        executorService.submit(websocketClient::disconnect);
         try {
             executorService.shutdown();
             if (!executorService.awaitTermination(1, TimeUnit.SECONDS)) {
