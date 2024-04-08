@@ -21,6 +21,9 @@ jobs:
         distribution: 'adopt'
         java-version: '17'
 
+    - name: Download libwebrtc-123.0.0.aar
+      run: wget -O app/libs/libwebrtc-123.0.0.aar https://github.com/rno/WebRTC/releases/download/123.0.0/libwebrtc-123.0.0.aar
+
     - name: Build with Gradle
       run: ./gradlew build
 
