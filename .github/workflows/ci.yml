@@ -9,7 +9,12 @@ on:
       - master
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        java: [8, 11, 17]
 
     steps:
     - name: Checkout code
@@ -19,7 +24,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'adopt'
-        java-version: '17'
+        java-version: ${{ matrix.java }}
 
     - name: Download libwebrtc-123.0.0.aar
       run: wget -O app/libs/libwebrtc-123.0.0.aar https://github.com/rno/WebRTC/releases/download/123.0.0/libwebrtc-123.0.0.aar
@@ -29,4 +34,3 @@ jobs:
 
     - name: Run tests
       run: ./gradlew test
-
