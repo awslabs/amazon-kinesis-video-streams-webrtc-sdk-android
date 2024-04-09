@@ -20,7 +20,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.DisplayMetrics;
@@ -277,54 +276,52 @@ public class WebRtcActivity extends AppCompatActivity {
         // Step 11. Create SignalingServiceWebSocketClient.
         //          This is the actual client that is used to send messages over the signaling channel.
         //          SignalingServiceWebSocketClient will attempt to open the connection in its constructor.
-        if (wsHost != null) {
-            try {
-                client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
+        try {
+            client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
 
-                Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
-            } catch (final Exception e) {
-                Log.e(TAG, "Exception with websocket client: " + e);
-                gotException = true;
-                return;
-            }
+            Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
+        } catch (final Exception e) {
+            Log.e(TAG, "Exception with websocket client: " + e);
+            gotException = true;
+            return;
+        }
 
-            if (isValidClient()) {
+        if (isValidClient()) {
 
-                Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
+            Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
 
-                if (master) {
+            if (master) {
 
-                    // If webrtc endpoint is non-null ==> Ingest media was checked
-                    if (webrtcEndpoint != null) {
-                        new Thread(() -> {
-                            try {
-                                final AWSKinesisVideoWebRTCStorageClient storageClient =
-                                        new AWSKinesisVideoWebRTCStorageClient(
-                                                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
-                                storageClient.setRegion(Region.getRegion(mRegion));
-                                storageClient.setSignerRegionOverride(mRegion);
-                                storageClient.setServiceNameIntern("kinesisvideo");
-                                storageClient.setEndpoint(webrtcEndpoint);
+                // If webrtc endpoint is non-null ==> Ingest media was checked
+                if (webrtcEndpoint != null) {
+                    new Thread(() -> {
+                        try {
+                            final AWSKinesisVideoWebRTCStorageClient storageClient =
+                                    new AWSKinesisVideoWebRTCStorageClient(
+                                            KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+                            storageClient.setRegion(Region.getRegion(mRegion));
+                            storageClient.setSignerRegionOverride(mRegion);
+                            storageClient.setServiceNameIntern("kinesisvideo");
+                            storageClient.setEndpoint(webrtcEndpoint);
 
-                                Log.i(TAG, "Channel ARN is: " + mChannelArn);
-                                storageClient.joinStorageSession(new JoinStorageSessionRequest()
-                                        .withChannelArn(mChannelArn));
-                                Log.i(TAG, "Join storage session request sent!");
-                            } catch (Exception ex) {
-                                Log.e(TAG, "Error sending join storage session request!", ex);
-                            }
-                        }).start();
-                    }
-                } else {
-                    Log.d(TAG, "Signaling service is connected: " +
-                            "Sending offer as viewer to remote peer"); // Viewer
-
-                    createSdpOffer();
+                            Log.i(TAG, "Channel ARN is: " + mChannelArn);
+                            storageClient.joinStorageSession(new JoinStorageSessionRequest()
+                                    .withChannelArn(mChannelArn));
+                            Log.i(TAG, "Join storage session request sent!");
+                        } catch (Exception ex) {
+                            Log.e(TAG, "Error sending join storage session request!", ex);
+                        }
+                    }).start();
                 }
             } else {
-                Log.e(TAG, "Error in connecting to signaling service");
-                gotException = true;
+                Log.d(TAG, "Signaling service is connected: " +
+                        "Sending offer as viewer to remote peer"); // Viewer
+
+                createSdpOffer();
             }
+        } else {
+            Log.e(TAG, "Error in connecting to signaling service");
+            gotException = true;
         }
     }
 
@@ -504,17 +501,15 @@ public class WebRtcActivity extends AppCompatActivity {
         if (mUrisList != null) {
             for (int i = 0; i < mUrisList.size(); i++) {
                 final String turnServer = mUrisList.get(i).toString();
-                if (turnServer != null) {
-                    assert mUserNames != null;
-                    assert mPasswords != null;
-                    final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
-                            .setUsername(mUserNames.get(i))
-                            .setPassword(mPasswords.get(i))
-                            .createIceServer();
+                assert mUserNames != null;
+                assert mPasswords != null;
+                final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
+                        .setUsername(mUserNames.get(i))
+                        .setPassword(mPasswords.get(i))
+                        .createIceServer();
 
-                    Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
-                    peerIceServers.add(iceServer);
-                }
+                Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
+                peerIceServers.add(iceServer);
             }
         }
 
@@ -783,11 +778,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 if (sendDataChannelButton != null) {
                     runOnUiThread(() -> {
-                        if (localDataChannel.state() == DataChannel.State.OPEN) {
-                            sendDataChannelButton.setEnabled(true);
-                        } else {
-                            sendDataChannelButton.setEnabled(false);
-                        }
+                        sendDataChannelButton.setEnabled(localDataChannel.state() == DataChannel.State.OPEN);
                     });
                 }
             }
@@ -991,30 +982,26 @@ public class WebRtcActivity extends AppCompatActivity {
     }
 
     private void resizeRemoteView() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            final DisplayMetrics displayMetrics = new DisplayMetrics();
-            final ViewGroup.LayoutParams lp = remoteView.getLayoutParams();
-            getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-            lp.height = (int) (displayMetrics.heightPixels * 0.75);
-            lp.width = (int) (displayMetrics.widthPixels * 0.75);
-            remoteView.setLayoutParams(lp);
-            localView.bringToFront();
-        }
+        final DisplayMetrics displayMetrics = new DisplayMetrics();
+        final ViewGroup.LayoutParams lp = remoteView.getLayoutParams();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        lp.height = (int) (displayMetrics.heightPixels * 0.75);
+        lp.width = (int) (displayMetrics.widthPixels * 0.75);
+        remoteView.setLayoutParams(lp);
+        localView.bringToFront();
     }
 
     private void createNotificationChannel() {
         // Create the NotificationChannel, but only on API 26+ because
         // the NotificationChannel class is new and not in the support library
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            final CharSequence name = getString(R.string.data_channel_notification);
-            final String description = getString(R.string.data_channel_notification_description);
-            final int importance = NotificationManager.IMPORTANCE_HIGH;
-            final NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-            channel.setDescription(description);
-            // Register the channel with the system; you can't change the importance
-            // or other notification behaviors after this
-            final NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
-        }
+        final CharSequence name = getString(R.string.data_channel_notification);
+        final String description = getString(R.string.data_channel_notification_description);
+        final int importance = NotificationManager.IMPORTANCE_HIGH;
+        final NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+        channel.setDescription(description);
+        // Register the channel with the system; you can't change the importance
+        // or other notification behaviors after this
+        final NotificationManager notificationManager = getSystemService(NotificationManager.class);
+        notificationManager.createNotificationChannel(channel);
     }
 }
