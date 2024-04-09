@@ -4,14 +4,14 @@ plugins {
 }
 
 android {
-    compileSdk 34
+    compileSdk 33
 
     defaultConfig {
         namespace("com.amazonaws.kinesisvideo.demoapp")
 
         applicationId "com.amazonaws.kinesisvideo.webrtc_sdk_android"
         minSdk 29
-        targetSdk 34
+        targetSdk 33
         versionCode 1
         versionName "1.0.0"
 
