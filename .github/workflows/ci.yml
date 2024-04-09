@@ -14,7 +14,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        java: [17, 21]
 
     steps:
     - name: Checkout code
@@ -24,7 +23,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'adopt'
-        java-version: ${{ matrix.java }}
+        java-version: 17
 
     - name: Download libwebrtc-123.0.0.aar
       run: wget -O app/libs/libwebrtc-123.0.0.aar https://github.com/rno/WebRTC/releases/download/123.0.0/libwebrtc-123.0.0.aar
