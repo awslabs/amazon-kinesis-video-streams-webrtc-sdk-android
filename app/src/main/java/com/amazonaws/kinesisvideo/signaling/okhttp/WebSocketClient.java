@@ -1,19 +1,18 @@
 package com.amazonaws.kinesisvideo.signaling.okhttp;
 
 import static org.awaitility.Awaitility.await;
-
-import android.util.Log;
-
-import com.amazonaws.kinesisvideo.signaling.SignalingListener;
-import com.amazonaws.kinesisvideo.utils.Constants;
-
-import java.util.concurrent.TimeUnit;
-
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
+import android.util.Log;
+import androidx.annotation.NonNull;
+
+import com.amazonaws.kinesisvideo.signaling.SignalingListener;
+import com.amazonaws.kinesisvideo.utils.Constants;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * An OkHttp based WebSocket client.
@@ -37,28 +36,28 @@ class WebSocketClient {
 
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
-            public void onOpen(WebSocket webSocket, Response response) {
+            public void onOpen(@NonNull WebSocket webSocket, @NonNull Response response) {
                 Log.d(TAG, "WebSocket connection opened");
                 isOpen = true;
                 // Register message handler
-                signalingListener.getMessageHandler().onOpen(webSocket, response);
+                signalingListener.getWebsocketListener().onOpen(webSocket, response);
             }
 
             @Override
-            public void onMessage(WebSocket webSocket, String text) {
+            public void onMessage(@NonNull WebSocket webSocket, @NonNull String text) {
                 Log.d(TAG, "Received message: " + text);
-                signalingListener.getMessageHandler().onMessage(webSocket, text);
+                signalingListener.getWebsocketListener().onMessage(webSocket, text);
             }
 
             @Override
-            public void onClosed(WebSocket webSocket, int code, String reason) {
+            public void onClosed(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
                 Log.d(TAG, "WebSocket connection closed: " + reason);
                 isOpen = false;
-                signalingListener.getMessageHandler().onClosed(webSocket, code, reason);
+                signalingListener.getWebsocketListener().onClosed(webSocket, code, reason);
             }
 
             @Override
-            public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+            public void onFailure(@NonNull WebSocket webSocket, @NonNull Throwable t, Response response) {
                 Log.e(TAG, "WebSocket connection failed", t);
                 isOpen = false;
                 // Handle failure

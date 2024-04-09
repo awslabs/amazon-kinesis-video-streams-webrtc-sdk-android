@@ -15,21 +15,21 @@ public abstract class SignalingListener implements Signaling {
 
     private final Gson gson = new Gson();
 
-    private final WebSocketListener messageHandler = new WebSocketListener() {
+    private final WebSocketListener websocketListener = new WebSocketListener() {
 
         @Override
-        public void onMessage(@NonNull WebSocket webSocket, String text) {
-            if (text.isEmpty()) {
+        public void onMessage(@NonNull WebSocket webSocket, String message) {
+            if (message.isEmpty()) {
                 return;
             }
 
-            Log.d(TAG, "Received message: " + text);
+            Log.d(TAG, "Received message: " + message);
 
-            if (!text.contains("messagePayload")) {
+            if (!message.contains("messagePayload")) {
                 return;
             }
 
-            final Event evt = gson.fromJson(text, Event.class);
+            final Event evt = gson.fromJson(message, Event.class);
 
             if (evt == null || evt.getMessageType() == null || evt.getMessagePayload().isEmpty()) {
                 return;
@@ -59,7 +59,7 @@ public abstract class SignalingListener implements Signaling {
         }
     };
 
-    public WebSocketListener getMessageHandler() {
-        return messageHandler;
+    public WebSocketListener getWebsocketListener() {
+        return websocketListener;
     }
 }
