@@ -20,18 +20,17 @@ import java.util.concurrent.TimeUnit;
 class WebSocketClient {
 
     private static final String TAG = "WebSocketClient";
-
     private final WebSocket webSocket;
     private volatile boolean isOpen = false;
 
     WebSocketClient(final String uri, final SignalingListener signalingListener) {
 
-        OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder();
-        OkHttpClient client = clientBuilder.build();
+        OkHttpClient client = new OkHttpClient.Builder().build();
 
         Request request = new Request.Builder()
                 .url(uri)
-                .addHeader("User-Agent", Constants.APP_NAME + "/" + Constants.VERSION + " " + System.getProperty("http.agent"))
+                .addHeader("User-Agent", Constants.APP_NAME + "/" + Constants.VERSION
+                        + " " + System.getProperty("http.agent"))
                 .build();
 
         webSocket = client.newWebSocket(request, new WebSocketListener() {
@@ -39,28 +38,24 @@ class WebSocketClient {
             public void onOpen(@NonNull WebSocket webSocket, @NonNull Response response) {
                 Log.d(TAG, "WebSocket connection opened");
                 isOpen = true;
-                // Register message handler
-                signalingListener.getWebsocketListener().onOpen(webSocket, response);
             }
 
             @Override
-            public void onMessage(@NonNull WebSocket webSocket, @NonNull String text) {
-                Log.d(TAG, "Received message: " + text);
-                signalingListener.getWebsocketListener().onMessage(webSocket, text);
+            public void onMessage(@NonNull WebSocket webSocket, @NonNull String message) {
+                Log.d(TAG, "Websocket received a message: " + message);
+                signalingListener.getWebsocketListener().onMessage(webSocket, message);
             }
 
             @Override
             public void onClosed(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
                 Log.d(TAG, "WebSocket connection closed: " + reason);
                 isOpen = false;
-                signalingListener.getWebsocketListener().onClosed(webSocket, code, reason);
             }
 
             @Override
             public void onFailure(@NonNull WebSocket webSocket, @NonNull Throwable t, Response response) {
                 Log.e(TAG, "WebSocket connection failed", t);
                 isOpen = false;
-                // Handle failure
                 signalingListener.onException((Exception) t);
             }
         });
