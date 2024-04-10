@@ -347,9 +347,10 @@ public class WebRtcActivity extends AppCompatActivity {
         while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
             final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
             final PeerConnection peer = peerConnectionFoundMap.get(clientId);
-            assert peer != null;
-            final boolean addIce = peer.addIceCandidate(iceCandidate);
-            Log.d(TAG, "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+            if (peer != null) {
+                final boolean addIce = peer.addIceCandidate(iceCandidate);
+                Log.d(TAG, "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+            }
             pendingIceCandidatesQueueByClientId.remove();
         }
         // After sending pending ICE candidates, the client ID's peer connection need not be tracked
@@ -374,9 +375,10 @@ public class WebRtcActivity extends AppCompatActivity {
                 pendingIceCandidatesQueueByClientId = new LinkedList<>();
             }
 
-            assert pendingIceCandidatesQueueByClientId != null;
-            pendingIceCandidatesQueueByClientId.add(iceCandidate);
-            pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+            if (pendingIceCandidatesQueueByClientId != null) {
+                pendingIceCandidatesQueueByClientId.add(iceCandidate);
+                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+            }
         }
 
         // This is the case where peer connection is established and ICE candidates are received for the established
@@ -385,10 +387,10 @@ public class WebRtcActivity extends AppCompatActivity {
             Log.d(TAG, "Peer connection found already");
             // Remote sent us ICE candidates, add to local peer connection
             final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
-            assert peer != null;
-            final boolean addIce = peer.addIceCandidate(iceCandidate);
-
-            Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+            if (peer != null){
+                final boolean addIce = peer.addIceCandidate(iceCandidate);
+                Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+            }
         }
     }
 
@@ -504,15 +506,15 @@ public class WebRtcActivity extends AppCompatActivity {
         if (mUrisList != null) {
             for (int i = 0; i < mUrisList.size(); i++) {
                 final String turnServer = mUrisList.get(i).toString();
-                assert mUserNames != null;
-                assert mPasswords != null;
-                final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
-                        .setUsername(mUserNames.get(i))
-                        .setPassword(mPasswords.get(i))
-                        .createIceServer();
+                if (mUserNames != null && mPasswords != null) {
+                    final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
+                            .setUsername(mUserNames.get(i))
+                            .setPassword(mPasswords.get(i))
+                            .createIceServer();
 
-                Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
-                peerIceServers.add(iceServer);
+                    Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
+                    peerIceServers.add(iceServer);
+                }
             }
         }
 
