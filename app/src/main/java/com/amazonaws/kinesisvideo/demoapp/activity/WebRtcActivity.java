@@ -13,11 +13,13 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.os.Bundle;
@@ -35,6 +37,7 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -673,7 +676,6 @@ public class WebRtcActivity extends AppCompatActivity {
                         Log.d(TAG, "Remote Data Channel onStateChange: state: " + dataChannel.state().toString());
                     }
 
-                    @SuppressLint("MissingPermission")
                     @Override
                     public void onMessage(DataChannel.Buffer buffer) {
                         runOnUiThread(() -> {
@@ -696,7 +698,9 @@ public class WebRtcActivity extends AppCompatActivity {
                             final NotificationManagerCompat notificationManager = NotificationManagerCompat.from(getApplicationContext());
 
                             // notificationId is a unique int for each notification that you must define
-                            notificationManager.notify(mNotificationId++, builder.build());
+                            if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                                notificationManager.notify(mNotificationId++, builder.build());
+                            }
 
                             Toast.makeText(getApplicationContext(), "New message from peer, check notification.", Toast.LENGTH_SHORT).show();
                         });
