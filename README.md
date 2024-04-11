@@ -101,6 +101,16 @@ However, in the case that it needs to be disabled, locate the RTCConfiguration p
 PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration();
 rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
 ```
+## 7. Testing
+This SDK has been tested with Java 11, 17 to build the Gradle dependencies and Java 8, 11, and, 17 in the compile options in build.gradle
+
+```agsl
+compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+```
+For more details about the different Java versions, please check [Java versions in Android builds](https://developer.android.com/build/jdks#jdk-config-in-studio)
 
 ## License
 
