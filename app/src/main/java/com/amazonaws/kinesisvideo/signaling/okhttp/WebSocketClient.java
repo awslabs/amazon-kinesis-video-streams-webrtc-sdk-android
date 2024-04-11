@@ -65,17 +65,27 @@ class WebSocketClient {
     }
 
     void send(String message) {
-        Log.d(TAG, "Sending message: " + message);
-        if (!webSocket.send(message)) {
-            Log.d(TAG, "Could not send " + message + " as the connection may have " +
-                    "closing, closed, or canceled.");
+        if (isOpen) {
+            if (webSocket.send(message)) {
+                Log.d(TAG, "Successfully sent " + message);
+            } else {
+                Log.d(TAG, "Could not send " + message + " as the connection may have closing, closed, or canceled.");
+            }
+        } else {
+            Log.d(TAG, "Cannot send the websocket message as it is not open.");
         }
     }
 
     void disconnect() {
-        if (!webSocket.close(1000, "Disconnect requested")) {
-            Log.d(TAG, "Websocket could not disconnect as a graceful shutdown was already " +
-                    "underway or the web socket is already closed or canceled");
+        if (isOpen) {
+            if (!webSocket.close(1000, "Disconnect requested")) {
+                Log.d(TAG, "Websocket could not disconnect in a graceful shutdown. Going to cancel it to release resources.");
+                webSocket.cancel();
+            } else {
+                Log.d(TAG, "Websocket successfully disconnected.");
+            }
+        } else {
+            Log.d(TAG, "Cannot close the websocket as it is not open.");
         }
     }
 
