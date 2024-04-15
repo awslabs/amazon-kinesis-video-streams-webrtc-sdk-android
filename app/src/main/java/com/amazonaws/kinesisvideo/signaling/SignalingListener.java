@@ -18,7 +18,7 @@ public abstract class SignalingListener implements Signaling {
     private final WebSocketListener websocketListener = new WebSocketListener() {
 
         @Override
-        public void onMessage(@NonNull WebSocket webSocket, String message) {
+        public void onMessage(@NonNull final WebSocket webSocket, @NonNull final String message) {
             if (message.isEmpty()) {
                 return;
             }

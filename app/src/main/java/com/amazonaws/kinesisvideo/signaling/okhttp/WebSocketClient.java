@@ -23,14 +23,17 @@ class WebSocketClient {
     private final WebSocket webSocket;
     private volatile boolean isOpen = false;
 
-    WebSocketClient(final String uri, final SignalingListener signalingListener) {
+    WebSocketClient(@NonNull final String uri, @NonNull final SignalingListener signalingListener) {
 
         OkHttpClient client = new OkHttpClient.Builder().build();
 
+        String userAgent = (Constants.APP_NAME + "/" + Constants.VERSION + " " + System.getProperty("http.agent")).trim();
+
+        Log.d(TAG, "User agent: " + userAgent);
+
         Request request = new Request.Builder()
                 .url(uri)
-                .addHeader("User-Agent", Constants.APP_NAME + "/" + Constants.VERSION
-                        + " " + System.getProperty("http.agent"))
+                .addHeader("User-Agent", userAgent)
                 .build();
 
         webSocket = client.newWebSocket(request, new WebSocketListener() {
@@ -78,11 +81,11 @@ class WebSocketClient {
 
     void disconnect() {
         if (isOpen) {
-            if (!webSocket.close(1000, "Disconnect requested")) {
+            if (webSocket.close(1000, "Disconnect requested")) {
+                Log.d(TAG, "Websocket successfully disconnected.");
+            } else {
                 Log.d(TAG, "Websocket could not disconnect in a graceful shutdown. Going to cancel it to release resources.");
                 webSocket.cancel();
-            } else {
-                Log.d(TAG, "Websocket successfully disconnected.");
             }
         } else {
             Log.d(TAG, "Cannot close the websocket as it is not open.");
