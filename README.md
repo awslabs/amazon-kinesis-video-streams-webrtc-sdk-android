@@ -106,9 +106,9 @@ This SDK has been tested with Java 11, 17 to build the Gradle dependencies and J
 
 ```agsl
 compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+}
 ```
 For more details about the different Java versions, please check [Java versions in Android builds](https://developer.android.com/build/jdks#jdk-config-in-studio)
 
