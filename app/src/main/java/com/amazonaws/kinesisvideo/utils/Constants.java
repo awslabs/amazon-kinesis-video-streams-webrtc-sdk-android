@@ -1,3 +1,5 @@
+package com.amazonaws.kinesisvideo.utils;
+
 import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
 
 public class Constants {
