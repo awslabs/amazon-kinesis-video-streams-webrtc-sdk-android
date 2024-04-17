@@ -1,6 +1,5 @@
 # Amazon Kinesis Video Streams Android WebRTC SDK
 [![Build Status](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/actions/workflows/ci.yml/badge.svg)](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/actions/workflows/ci.yml)
-[![Coverage Status](https://codecov.io/gh/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/branch/master/graph/badge.svg)](https://codecov.io/gh/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android)
 
 ## Running KinesisVideoWebRTCDempApp Sample
 
