@@ -1,0 +1,34 @@
+name: AWS KVS WebRTC Android SDK CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        java: [11, 17]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'corretto'
+        java-version: ${{ matrix.java }}
+
+    - name: Download libwebrtc
+      run: wget -O app/libs/libwebrtc-115.0.0.aar https://github.com/rno/WebRTC/releases/download/115.0.0/libwebrtc-115.0.0.aar
+
+    - name: Build with Gradle
+      run: ./gradlew build
+
+    - name: Run tests
+      run: ./gradlew test

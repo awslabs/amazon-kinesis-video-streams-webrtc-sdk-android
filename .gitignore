@@ -9,8 +9,11 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+app/libs/libwebrtc-*
+app/src/main/res/raw/awsconfiguration.json
+app/build
+

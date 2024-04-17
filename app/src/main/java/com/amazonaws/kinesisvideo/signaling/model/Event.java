@@ -3,6 +3,8 @@ package com.amazonaws.kinesisvideo.signaling.model;
 import android.util.Base64;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.google.common.base.Charsets;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -143,6 +145,7 @@ public class Event {
                 .orElse("");
     }
 
+    @NonNull
     @Override
     public String toString() {
         return "Event(" +
