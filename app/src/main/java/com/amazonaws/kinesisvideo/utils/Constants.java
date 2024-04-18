@@ -1,5 +1,7 @@
 package com.amazonaws.kinesisvideo.utils;
 
+import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
+
 public class Constants {
     /**
      * SDK identifier
@@ -8,7 +10,7 @@ public class Constants {
     /**
      * SDK version identifier
      */
-    public static final String VERSION = "1.1.0";
+    public static final String VERSION = BuildConfig.VERSION_NAME;
 
     /**
      * Query parameter for Channel ARN. Used for calling Kinesis Video Websocket APIs.
