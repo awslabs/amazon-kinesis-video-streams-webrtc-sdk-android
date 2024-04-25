@@ -13,7 +13,7 @@
   },
   "CognitoUserPool": {
     "Default": {
-      "AppClientSecret": "REPLACE_ME",
+      "AppClientSecret": "REPLACE_ME - or leave this value blank if AppClient does not use a client secret.",
       "AppClientId": "REPLACE_ME",
       "PoolId": "REPLACE_ME",
       "Region": "REPLACE_ME"
