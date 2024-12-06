@@ -13,6 +13,8 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 
+import static java.security.AccessController.getContext;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
@@ -161,6 +163,15 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private AWSCredentials mCreds = null;
 
+
+    private VideoRendererCallbacks videoRendererCallbacks = new VideoRendererCallbacks();
+
+    private long offerSentTime;
+    private long answerReceivedTime;
+    private long connectedTime;
+    private long firstFrameReceivedTime;
+
+
     /**
      * Prints WebRTC stats to the debug console every so often.
      */
@@ -233,6 +244,12 @@ public class WebRtcActivity extends AppCompatActivity {
             @Override
             public void onSdpAnswer(final Event answerEvent) {
 
+                answerReceivedTime = System.nanoTime();
+
+                Log.d(TAG, "[Testing] Offer to answer time (ns): " + ((answerReceivedTime - offerSentTime) / 1000000.0));
+                FileHelper.appendLineToFile(getApplicationContext(), "Offer to Answer Time: " + ((answerReceivedTime - offerSentTime) / 1000000.0));
+
+                
                 Log.d(TAG, "SDP answer received from signaling");
 
                 final String sdp = Event.parseSdpEvent(answerEvent);
@@ -400,7 +417,7 @@ public class WebRtcActivity extends AppCompatActivity {
         printStatsExecutor.shutdownNow();
 
         audioManager.setMode(originalAudioMode);
-        audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
+//        audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
 
         if (rootEglBase != null) {
             rootEglBase.release();
@@ -454,6 +471,15 @@ public class WebRtcActivity extends AppCompatActivity {
 
         // Start websocket after adding local audio/video tracks
         initWsConnection();
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(15000);
+                finish();
+            } catch (Exception ex) {
+                Log.e(TAG, "Error sending join storage session request!", ex);
+            }
+        }).start();
 
         if (!gotException && isValidClient()) {
             Toast.makeText(this, "Signaling Connected", Toast.LENGTH_LONG).show();
@@ -577,7 +603,7 @@ public class WebRtcActivity extends AppCompatActivity {
         localVideoTrack.setEnabled(true);
 
         remoteView = findViewById(R.id.remote_view);
-        remoteView.init(rootEglBase.getEglBaseContext(), null);
+        remoteView.init(rootEglBase.getEglBaseContext(), videoRendererCallbacks);
 
         dataChannelText = findViewById(R.id.data_channel_text);
         sendDataChannelButton = findViewById(R.id.send_data_channel_text);
@@ -659,6 +685,10 @@ public class WebRtcActivity extends AppCompatActivity {
                 if (iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connection to peer failed!", Toast.LENGTH_LONG).show());
                 } else if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
+                    connectedTime = System.nanoTime();
+                    Log.d(TAG, "[Testing] Offer to connected time (ns): " + ((connectedTime - offerSentTime) / 1000000.0));
+                    FileHelper.appendLineToFile(getApplicationContext(), "Offer to Connected Time: " + ((connectedTime - offerSentTime) / 1000000.0));
+
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connected to peer!", Toast.LENGTH_LONG).show());
                 }
             }
@@ -828,6 +858,8 @@ public class WebRtcActivity extends AppCompatActivity {
                 final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
 
                 if (isValidClient()) {
+                    offerSentTime = System.nanoTime();
+                    videoRendererCallbacks.setOfferSentTime(offerSentTime);
                     client.sendSdpOffer(sdpOfferMessage);
                 } else {
                     notifySignalingConnectionFailed();
@@ -881,8 +913,8 @@ public class WebRtcActivity extends AppCompatActivity {
         if (remoteAudioTrack != null) {
             remoteAudioTrack.setEnabled(true);
             Log.d(TAG, "remoteAudioTrack received: State=" + remoteAudioTrack.state().name());
-            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-            audioManager.setSpeakerphoneOn(true);
+//            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+//            audioManager.setSpeakerphoneOn(false);
         }
 
         if (remoteVideoTrack != null) {
