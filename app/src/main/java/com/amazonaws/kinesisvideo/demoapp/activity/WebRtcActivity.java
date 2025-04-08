@@ -74,6 +74,7 @@ import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnection.IceServer;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.RTCStats;
+import org.webrtc.RendererCommon;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
@@ -161,6 +162,13 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private AWSCredentials mCreds = null;
 
+    private VideoRendererCallbacks videoRendererCallbacks = new VideoRendererCallbacks();
+
+    private long offerSentTime;
+    private long answerReceivedTime;
+    private long connectedTime;
+    private long firstFrameReceivedTime;
+
     /**
      * Prints WebRTC stats to the debug console every so often.
      */
@@ -234,6 +242,10 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onSdpAnswer(final Event answerEvent) {
 
                 Log.d(TAG, "SDP answer received from signaling");
+
+                answerReceivedTime = System.nanoTime();
+                Log.d(TAG, "[Testing] Offer to answer time (ns): " + ((answerReceivedTime - offerSentTime) / 1000000.0));
+                FileHelper.appendLineToFile(getApplicationContext(), "Offer to Answer Time: " + ((answerReceivedTime - offerSentTime) / 1000000.0));
 
                 final String sdp = Event.parseSdpEvent(answerEvent);
 
@@ -455,6 +467,15 @@ public class WebRtcActivity extends AppCompatActivity {
         // Start websocket after adding local audio/video tracks
         initWsConnection();
 
+        new Thread(() -> {
+            try {
+                Thread.sleep(15000);
+                finish();
+            } catch (Exception ex) {
+                Log.e(TAG, "Error sending join storage session request!", ex);
+            }
+        }).start();
+
         if (!gotException && isValidClient()) {
             Toast.makeText(this, "Signaling Connected", Toast.LENGTH_LONG).show();
         } else {
@@ -523,6 +544,7 @@ public class WebRtcActivity extends AppCompatActivity {
         PeerConnectionFactory.initialize(PeerConnectionFactory
                 .InitializationOptions
                 .builder(this)
+                .setEnableInternalTracer(true)
                 .createInitializationOptions());
 
         final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
@@ -545,7 +567,7 @@ public class WebRtcActivity extends AppCompatActivity {
                         .createPeerConnectionFactory();
 
         // Enable Google WebRTC debug logs
-        Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
+        Logging.enableLogToDebugOutput(Logging.Severity.LS_VERBOSE);
 
         videoCapturer = createVideoCapturer();
 
@@ -577,7 +599,7 @@ public class WebRtcActivity extends AppCompatActivity {
         localVideoTrack.setEnabled(true);
 
         remoteView = findViewById(R.id.remote_view);
-        remoteView.init(rootEglBase.getEglBaseContext(), null);
+        remoteView.init(rootEglBase.getEglBaseContext(), videoRendererCallbacks);
 
         dataChannelText = findViewById(R.id.data_channel_text);
         sendDataChannelButton = findViewById(R.id.send_data_channel_text);
@@ -659,6 +681,12 @@ public class WebRtcActivity extends AppCompatActivity {
                 if (iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connection to peer failed!", Toast.LENGTH_LONG).show());
                 } else if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
+
+                    connectedTime = System.nanoTime();
+                    Log.d(TAG, "[Testing] Offer to connected time (ns): " + ((connectedTime - offerSentTime) / 1000000.0));
+                    FileHelper.appendLineToFile(getApplicationContext(), "Offer to Connected Time: " + ((connectedTime - offerSentTime) / 1000000.0));
+
+
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connected to peer!", Toast.LENGTH_LONG).show());
                 }
             }
@@ -828,6 +856,10 @@ public class WebRtcActivity extends AppCompatActivity {
                 final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
 
                 if (isValidClient()) {
+
+                    offerSentTime = System.nanoTime();
+                    videoRendererCallbacks.setOfferSentTime(offerSentTime);
+
                     client.sendSdpOffer(sdpOfferMessage);
                 } else {
                     notifySignalingConnectionFailed();
