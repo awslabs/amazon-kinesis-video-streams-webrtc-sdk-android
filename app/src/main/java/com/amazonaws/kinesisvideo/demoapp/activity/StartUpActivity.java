@@ -16,6 +16,10 @@ import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.SignInUIOptions;
 import com.amazonaws.mobile.client.UserStateDetails;
+import com.amazonaws.mobileconnectors.kinesisvideo.client.AndroidKinesisVideoClient;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -25,6 +29,8 @@ public class StartUpActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        System.setProperty("javax.net.debug", "ssl");
 
         final AWSMobileClient auth = AWSMobileClient.getInstance();
         initializeMobileClient(auth);

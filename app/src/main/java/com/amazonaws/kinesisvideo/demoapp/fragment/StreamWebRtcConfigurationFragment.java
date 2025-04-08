@@ -1,5 +1,7 @@
 package com.amazonaws.kinesisvideo.demoapp.fragment;
 
+import static com.amazonaws.mobile.auth.core.internal.util.ThreadUtils.runOnUiThread;
+
 import android.Manifest;
 import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
 import android.content.Intent;
@@ -19,6 +21,7 @@ import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Spinner;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -192,6 +195,21 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         };
     }
 
+    @Override
+    public void onResume() {
+        new Thread(() -> {
+            try {
+                runOnUiThread(() -> Toast.makeText(getContext(), "Sleeping 15 sec", Toast.LENGTH_LONG).show());
+                Thread.sleep(15000);
+                startViewerActivity();
+            } catch (Exception ex) {
+                Log.e(TAG, "Error sending join storage session request!", ex);
+            }
+        }).start();
+
+        super.onResume();
+    }
+
     private void startMasterActivity() {
         final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
         
@@ -227,7 +245,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         return new View.OnClickListener() {
             @Override
             public void onClick(final View view) {
-                startViewerActivity();
+//                startViewerActivity();
+                runOnUiThread(() -> Toast.makeText(getContext(), "Disabled.", Toast.LENGTH_SHORT).show());
             }
         };
     }
