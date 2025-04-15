@@ -503,20 +503,22 @@ public class WebRtcActivity extends AppCompatActivity {
 
         peerIceServers.add(stun);
 
-        if (mUrisList != null) {
-            for (int i = 0; i < mUrisList.size(); i++) {
-                final String turnServer = mUrisList.get(i).toString();
-                if (mUserNames != null && mPasswords != null) {
-                    final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
-                            .setUsername(mUserNames.get(i))
-                            .setPassword(mPasswords.get(i))
-                            .createIceServer();
+        // Comment out the below code to force STUN
+        // if (mUrisList != null) {
+        //     for (int i = 0; i < mUrisList.size(); i++) {
+        //         final String turnServer = mUrisList.get(i).toString();
+        //         if (mUserNames != null && mPasswords != null) {
+        //             final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
+        //                     .setUsername(mUserNames.get(i))
+        //                     .setPassword(mPasswords.get(i))
+        //                     .createIceServer();
 
-                    Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
-                    peerIceServers.add(iceServer);
-                }
-            }
-        }
+        //             Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
+        //             peerIceServers.add(iceServer);
+        //         }
+        //     }
+        // }
+        // .. to here.
 
         setContentView(R.layout.activity_webrtc_main);
 
@@ -637,6 +639,12 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onIceCandidate(final IceCandidate iceCandidate) {
 
                 super.onIceCandidate(iceCandidate);
+
+                // Filter out host candidates
+                if (iceCandidate != null && iceCandidate.sdp.contains("typ host")) {
+                    Log.d(TAG, "Filtered out host candidate: " + iceCandidate.sdp);
+                    return;  // Ignore host candidates
+                }
 
                 final Message message = createIceCandidateMessage(iceCandidate);
                 Log.d(TAG, "Sending IceCandidate to remote peer " + iceCandidate);
