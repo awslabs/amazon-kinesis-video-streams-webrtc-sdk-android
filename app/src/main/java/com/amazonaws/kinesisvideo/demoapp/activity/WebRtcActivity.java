@@ -498,7 +498,8 @@ public class WebRtcActivity extends AppCompatActivity {
         //TODO: add ui to control TURN only option
 
         final IceServer stun = IceServer
-                .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
+                .builder("stun:stun.l.google.com:19302")
+                // .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
                 .createIceServer();
 
         peerIceServers.add(stun);
