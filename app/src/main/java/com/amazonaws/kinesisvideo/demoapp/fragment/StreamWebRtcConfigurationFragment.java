@@ -86,11 +86,15 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             KEY_SEND_AUDIO,
     };
 
+    public static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT = "kinesisvideo.%s.api.aws";
+    public static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT_CN = "kinesisvideo.%s.api.amazonwebservices.com.cn";
+
 
     private EditText mChannelName;
     private EditText mClientId;
     private EditText mRegion;
     private Spinner mCameras;
+    private CheckBox mUseDualStackEndpoints;
     private CheckBox mIngestMedia;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
@@ -132,6 +136,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mChannelName = view.findViewById(R.id.channel_name);
         mClientId = view.findViewById(R.id.client_id);
         mRegion = view.findViewById(R.id.region);
+        mUseDualStackEndpoints = view.findViewById(R.id.use_dual_stack_endpoints);
         mIngestMedia = view.findViewById(R.id.ingest_media);
         setRegionFromCognito();
 
@@ -175,7 +180,18 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         }
     }
 
+    private String generateDualStackEndpoint(String region) {
+        if (region == null || region.isEmpty()) {
+            Log.w(TAG, "AWS region is null or empty, will use legacy control-plane endpoint.");
+            return null;
+        }
 
+        if (region.startsWith("cn-")) {
+            return String.format(DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT_CN, region);
+        }
+
+        return String.format(DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT, region);
+    }
 
     private View.OnClickListener startMasterActivityWhenClicked() {
         return new View.OnClickListener() {
@@ -321,8 +337,12 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             }
         } catch (Exception e) {
             // CONTROL_PLANE_URI not defined in .env
+
+            // Check for dual-stack checkbox.
+            if (mUseDualStackEndpoints.isChecked()) {
+                awsKinesisVideoClient.setEndpoint(generateDualStackEndpoint(region));
+            }
         }
-        
         return awsKinesisVideoClient;
     }
 
