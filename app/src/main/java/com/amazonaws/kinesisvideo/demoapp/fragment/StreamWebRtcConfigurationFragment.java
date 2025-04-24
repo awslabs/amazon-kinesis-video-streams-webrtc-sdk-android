@@ -48,6 +48,7 @@ import com.amazonaws.services.kinesisvideosignaling.AWSKinesisVideoSignalingClie
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequest;
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
 import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
+import com.amazonaws.kinesisvideo.demoapp.util.KvsClientFactory;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -187,19 +188,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         }
     }
 
-    private String generateDualStackEndpoint(String region) {
-        if (region == null || region.isEmpty()) {
-            Log.w(TAG, "AWS region is null or empty, will use legacy control-plane endpoint.");
-            return null;
-        }
-
-        if (region.startsWith("cn-")) {
-            return String.format(DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT_CN, region);
-        }
-
-        return String.format(DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT, region);
-    }
-
     private View.OnClickListener startMasterActivityWhenClicked() {
         return new View.OnClickListener() {
             @Override
@@ -318,20 +306,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         return extras;
     }
 
-    private AWSKinesisVideoClient getAwsKinesisVideoClient(final String region) {
-        final AWSKinesisVideoClient awsKinesisVideoClient = new AWSKinesisVideoClient(
-                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
-        awsKinesisVideoClient.setRegion(Region.getRegion(region));
-        awsKinesisVideoClient.setSignerRegionOverride(region);
-        awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
-
-        if (mUseDualStackEndpoints.isChecked()) {
-            awsKinesisVideoClient.setEndpoint(generateDualStackEndpoint(region));
-        };
-
-        return awsKinesisVideoClient;
-    }
-
     private AWSKinesisVideoSignalingClient getAwsKinesisVideoSignalingClient(final String region, final String endpoint) {
         final AWSKinesisVideoSignalingClient client = new AWSKinesisVideoSignalingClient(
                 KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
@@ -390,7 +364,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             // Step 1. Create Kinesis Video Client
             final AWSKinesisVideoClient awsKinesisVideoClient;
             try {
-                awsKinesisVideoClient = mFragment.get().getAwsKinesisVideoClient(region);
+                final boolean useDualStack = mFragment.get().mUseDualStackEndpoints.isChecked();
+                awsKinesisVideoClient = KvsClientFactory.getAwsKinesisVideoClient(region, useDualStack);
             } catch (Exception e) {
                 return "Create client failed with " + e.getLocalizedMessage();
             }
