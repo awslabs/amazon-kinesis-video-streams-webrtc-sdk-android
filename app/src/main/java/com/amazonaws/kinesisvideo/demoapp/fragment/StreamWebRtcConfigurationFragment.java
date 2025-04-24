@@ -13,6 +13,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.Switch;
 import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -91,7 +92,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private EditText mClientId;
     private EditText mRegion;
     private Spinner mCameras;
-    private CheckBox mUseDualStackEndpoints;
+    private Switch mUseDualStackEndpoints;
     private CheckBox mIngestMedia;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
