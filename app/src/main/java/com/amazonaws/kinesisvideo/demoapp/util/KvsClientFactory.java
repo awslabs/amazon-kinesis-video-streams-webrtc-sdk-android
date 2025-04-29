@@ -12,6 +12,7 @@ public class KvsClientFactory {
 
     private static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT = "kinesisvideo.%s.api.aws";
     private static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT_CN = "kinesisvideo.%s.api.amazonwebservices.com.cn";
+    private static final String KVS_SERVICE_NAME = "kinesisvideo";
 
     private static String generateDualStackEndpoint(final String region) {
         if (region == null || region.isEmpty()) {
@@ -31,7 +32,7 @@ public class KvsClientFactory {
                 KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
         awsKinesisVideoClient.setRegion(Region.getRegion(region));
         awsKinesisVideoClient.setSignerRegionOverride(region);
-        awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
+        awsKinesisVideoClient.setServiceNameIntern(KVS_SERVICE_NAME);
 
         if (useDualStack) {
             awsKinesisVideoClient.setEndpoint(generateDualStackEndpoint(region));
