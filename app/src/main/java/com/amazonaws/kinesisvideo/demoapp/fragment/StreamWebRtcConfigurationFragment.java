@@ -13,6 +13,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.Switch;
 import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -47,6 +48,7 @@ import com.amazonaws.services.kinesisvideosignaling.AWSKinesisVideoSignalingClie
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequest;
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
 import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
+import com.amazonaws.kinesisvideo.demoapp.util.KvsClientFactory;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -83,11 +85,15 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             KEY_SEND_AUDIO,
     };
 
+    public static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT = "kinesisvideo.%s.api.aws";
+    public static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT_CN = "kinesisvideo.%s.api.amazonwebservices.com.cn";
+
 
     private EditText mChannelName;
     private EditText mClientId;
     private EditText mRegion;
     private Spinner mCameras;
+    private Switch mUseDualStackEndpoints;
     private CheckBox mIngestMedia;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
@@ -129,6 +135,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mChannelName = view.findViewById(R.id.channel_name);
         mClientId = view.findViewById(R.id.client_id);
         mRegion = view.findViewById(R.id.region);
+        mUseDualStackEndpoints = view.findViewById(R.id.use_dual_stack_endpoints);
         mIngestMedia = view.findViewById(R.id.ingest_media);
         setRegionFromCognito();
 
@@ -299,15 +306,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         return extras;
     }
 
-    private AWSKinesisVideoClient getAwsKinesisVideoClient(final String region) {
-        final AWSKinesisVideoClient awsKinesisVideoClient = new AWSKinesisVideoClient(
-                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
-        awsKinesisVideoClient.setRegion(Region.getRegion(region));
-        awsKinesisVideoClient.setSignerRegionOverride(region);
-        awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
-        return awsKinesisVideoClient;
-    }
-
     private AWSKinesisVideoSignalingClient getAwsKinesisVideoSignalingClient(final String region, final String endpoint) {
         final AWSKinesisVideoSignalingClient client = new AWSKinesisVideoSignalingClient(
                 KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
@@ -366,7 +364,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             // Step 1. Create Kinesis Video Client
             final AWSKinesisVideoClient awsKinesisVideoClient;
             try {
-                awsKinesisVideoClient = mFragment.get().getAwsKinesisVideoClient(region);
+                final boolean useDualStack = mFragment.get().mUseDualStackEndpoints.isChecked();
+                awsKinesisVideoClient = KvsClientFactory.getAwsKinesisVideoClient(region, useDualStack);
             } catch (Exception e) {
                 return "Create client failed with " + e.getLocalizedMessage();
             }

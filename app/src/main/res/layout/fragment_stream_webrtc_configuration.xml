@@ -77,13 +77,55 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="KVS Endpoint Type"
+            tools:ignore="HardcodedText" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginStart="20dp">
+
+            <TextView
+                android:id="@+id/label_ipv4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="IPv4"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp" />
+
+            <Switch
+                android:id="@+id/use_dual_stack_endpoints"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:id="@+id/label_dual_stack"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dual-stack"
+                android:textSize="16sp"
+                android:layout_marginStart="4dp" />
+
+        </LinearLayout>
+
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="20dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:text="Camera"
             tools:ignore="HardcodedText" />
 
         <Spinner
             android:layout_width="match_parent"
             android:layout_height="20dp"
-            android:id="@+id/camera_spinner" />
+            android:id="@+id/camera_spinner"
+            android:layout_marginStart="10dp" />
 
         <Space
             android:layout_width="match_parent"
