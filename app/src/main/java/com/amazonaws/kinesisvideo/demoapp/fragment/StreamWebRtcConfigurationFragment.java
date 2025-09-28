@@ -194,18 +194,30 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         };
     }
 
+    private int iterationCount = 0; // Number of iterations to run
+    private final int MAX_ITERATIONS = 100; // Can be made configurable
+
     @Override
     public void onResume() {
-        new Thread(() -> {
-            try {
-                runOnUiThread(() -> Toast.makeText(getContext(), "Sleeping 15 sec", Toast.LENGTH_LONG).show());
-                Thread.sleep(15000);
-                startViewerActivity();
-            } catch (Exception ex) {
-                Log.e(TAG, "Error sending join storage session request!", ex);
-            }
-        }).start();
-
+        if (iterationCount < MAX_ITERATIONS) {
+            new Thread(() -> {
+                try {
+                    runOnUiThread(() -> Toast.makeText(getContext(), "Sleeping 8 sec", Toast.LENGTH_LONG).show());
+                    Thread.sleep(8000);
+                    iterationCount++;
+                    runOnUiThread(() -> Toast.makeText(getContext(),
+                            "Iteration " + ( iterationCount ) + " of " + MAX_ITERATIONS,
+                            Toast.LENGTH_LONG).show());
+                    startViewerActivity();
+                } catch (Exception ex) {
+                    Log.e(TAG, "Error sending join storage session request!", ex);
+                }
+            }).start();
+        }else {
+            runOnUiThread(() -> Toast.makeText(getContext(),
+                    "All " + MAX_ITERATIONS + " iterations completed!",
+                    Toast.LENGTH_LONG).show());
+        }
         super.onResume();
     }
 
