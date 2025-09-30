@@ -92,7 +92,7 @@
         <CheckBox
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Ingest media (master only)"
+            android:text="Ingest media"
             android:layoutDirection="rtl"
             android:id="@+id/ingest_media"
             android:layout_margin="16dp"

@@ -24,6 +24,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import android.content.Context;
 
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
@@ -47,6 +48,7 @@ import com.amazonaws.services.kinesisvideosignaling.AWSKinesisVideoSignalingClie
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequest;
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
 import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
+
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -143,16 +145,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                     final CheckedTextView ctv = v.findViewById(android.R.id.text1);
                     ctv.setText(WEBRTC_OPTIONS[position]);
 
-                    // Send video is enabled by default and cannot uncheck
-                    if (position == 0) {
-                        ctv.setEnabled(false);
-                        ctv.setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View view) {
-                                ctv.setChecked(true);
-                            }
-                        });
-                    }
+                    // Send video is now optional
                     return v;
                 }
 
@@ -181,6 +174,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         }
     }
 
+
+
     private View.OnClickListener startMasterActivityWhenClicked() {
         return new View.OnClickListener() {
             @Override
@@ -191,10 +186,20 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private void startMasterActivity() {
+        final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
+        
+        // Check if Send Video is selected (position 0)
+        if (!checked.get(0)) {
+            new AlertDialog.Builder(getActivity())
+                    .setPositiveButton("OK", null)
+                    .setMessage("Send Video must be enabled to start as master!")
+                    .create()
+                    .show();
+            return;
+        }
 
         if (mIngestMedia.isChecked()) {
             // Check that the "Send Audio" and "Send Video" boxes are enabled.
-            final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
             for (int i = 0; i < mOptions.getCount(); i++) {
                 if (!checked.get(i)) {
                     new AlertDialog.Builder(getActivity())
@@ -231,6 +236,19 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private void startViewerActivity() {
+        Log.i(TAG, "Start Viewer button clicked - beginning viewer activity setup");
+        final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
+        
+//        Check if Ingest Media is checked with Send Video
+        if (mIngestMedia.isChecked() && checked.get(0)) {
+            new AlertDialog.Builder(getActivity())
+                    .setPositiveButton("OK", null)
+                    .setMessage("Ingest Media for viewers can only be used with Send Audio, not Send Video!")
+                    .create()
+                    .show();
+            return;
+        }
+        
         if (!updateSignalingChannelInfo(mRegion.getText().toString(),
                 mChannelName.getText().toString(),
                 ChannelRole.VIEWER)) {
@@ -341,6 +359,17 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
         if (errorMessage != null) {
             Log.e(TAG, "updateSignalingChannelInfo() encountered an error: " + errorMessage);
+            // Show error to user for debugging
+            final String finalErrorMessage = errorMessage;
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(() -> {
+                    new AlertDialog.Builder(getContext())
+                            .setTitle("Connection Error")
+                            .setMessage(finalErrorMessage)
+                            .setPositiveButton("OK", null)
+                            .show();
+                });
+            }
         }
         return errorMessage == null;
     }
