@@ -9,6 +9,7 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_IS_MASTER;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_REGION;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_SEND_AUDIO;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_SEND_VIDEO;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_STREAM_ARN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
@@ -145,6 +146,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean master = true;
     private boolean isAudioSent = false;
+    private boolean isVideoSent = false;
 
     private EditText dataChannelText = null;
     private Button sendDataChannelButton = null;
@@ -216,33 +218,10 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onSdpOffer(final Event offerEvent) {
-
                 final String sdp = Event.parseOfferEvent(offerEvent);
-
-                Log.d(TAG, "Thread before setRemoteDescription: " + Thread.currentThread().getName());
                 
-                try {
-                    localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
-                        @Override
-                        public void onSetSuccess() {
-                            Log.d(TAG, "[CALLBACK] Thread in onSetSuccess: " + Thread.currentThread().getName());
-                            super.onSetSuccess();
-                        }
-                        
-                        @Override
-                        public void onSetFailure(String error) {
-                            super.onSetFailure(error);
-                        }
-                    }, new SessionDescription(SessionDescription.Type.OFFER, sdp));
-                    Log.d(TAG, "setRemoteDescription() call completed without exception");
-                } catch (Exception e) {
-                    Log.e(TAG, "Exception during setRemoteDescription(): " + e.getMessage(), e);
-                }
-                
+                localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
                 recipientClientId = offerEvent.getSenderClientId();
-                // For storage session, sender client ID might be null (from storage agent)
-                String logClientId = recipientClientId != null ? recipientClientId : "storage-agent";
-
                 createSdpAnswer();
 
                 if (master && webrtcEndpoint != null) {
@@ -253,41 +232,23 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onSdpAnswer(final Event answerEvent) {
-                Log.d(TAG, "=== SDP ANSWER RECEIVED ===");
-
                 final String sdp = Event.parseSdpEvent(answerEvent);
-
                 final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
                 localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
                     @Override
-                    public void onSetSuccess() {
-                        Log.d(TAG, "✓ Remote description (ANSWER) set successfully on PeerConnection");
-                        super.onSetSuccess();
-                    }
-                    
-                    @Override
-                    public void onSetFailure(String error) {
-                        Log.e(TAG, "✗ Failed to set remote description (ANSWER): " + error);
-                        super.onSetFailure(error);
-                    }
-                    
-                    @Override
                     public void onCreateFailure(final String error) {
-                        Log.e(TAG, "✗ Create failure in answer processing: " + error);
                         super.onCreateFailure(error);
                     }
                 }, sdpAnswer);
-                Log.d(TAG, "Answer Client ID: " + answerEvent.getSenderClientId());
-                peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
-                // Check if ICE candidates are available in the queue and add the candidate
-                handlePendingIceCandidates(answerEvent.getSenderClientId());
-
+                
+                String answerClientId = answerEvent.getSenderClientId();
+                peerConnectionFoundMap.put(answerClientId, localPeer);
+                handlePendingIceCandidates(answerClientId);
             }
 
             @Override
             public void onIceCandidate(final Event message) {
-                Log.d(TAG, "Received ICE candidate from remote");
                 final IceCandidate iceCandidate = Event.parseIceCandidate(message);
                 if (iceCandidate != null) {
                     checkAndAddIceCandidate(message, iceCandidate);
@@ -390,21 +351,18 @@ public class WebRtcActivity extends AppCompatActivity {
         while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
             final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
             final PeerConnection peer = peerConnectionFoundMap.get(clientId);
+            
             if (peer != null) {
-                final boolean addIce = peer.addIceCandidate(iceCandidate);
-                if (!addIce) {
-                    Log.e(TAG, "Failed to add pending ICE candidate - connectivity may be affected");
-                }
-            } else {
-                Log.e(TAG, "Peer connection is null when processing pending ICE candidates");
+                peer.addIceCandidate(iceCandidate);
             }
             pendingIceCandidatesQueueByClientId.remove();
         }
+        
         pendingIceCandidatesMap.remove(clientId);
     }
 
     private void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
-        String senderClientId = message.getSenderClientId() != null ? message.getSenderClientId() : "storage-agent";
+        String senderClientId = message.getSenderClientId();
         
         if (!peerConnectionFoundMap.containsKey(senderClientId)) {
             final Queue<IceCandidate> pendingIceCandidatesQueueByClientId;
@@ -421,12 +379,7 @@ public class WebRtcActivity extends AppCompatActivity {
         } else {
             final PeerConnection peer = peerConnectionFoundMap.get(senderClientId);
             if (peer != null){
-                final boolean addIce = peer.addIceCandidate(iceCandidate);
-                if (!addIce) {
-                    Log.e(TAG, "Failed to add ICE candidate - this may prevent connectivity");
-                }
-            } else {
-                Log.e(TAG, "Peer connection is null - cannot add ICE candidate");
+                peer.addIceCandidate(iceCandidate);
             }
         }
     }
@@ -523,6 +476,7 @@ public class WebRtcActivity extends AppCompatActivity {
         }
         master = intent.getBooleanExtra(KEY_IS_MASTER, true);
         isAudioSent = intent.getBooleanExtra(KEY_SEND_AUDIO, false);
+        isVideoSent = intent.getBooleanExtra(KEY_SEND_VIDEO, false);
         ArrayList<String> mUserNames = intent.getStringArrayListExtra(KEY_ICE_SERVER_USER_NAME);
         ArrayList<String> mPasswords = intent.getStringArrayListExtra(KEY_ICE_SERVER_PASSWORD);
         ArrayList<List<String>> mUrisList = (ArrayList<List<String>>) intent.getSerializableExtra(KEY_ICE_SERVER_URI);
@@ -584,9 +538,9 @@ public class WebRtcActivity extends AppCompatActivity {
         // Enable Google WebRTC debug logs
         Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
 
-        // Check if we should create video track (not for storage session viewers)
+        // Check if we should create video track based on user preference and session type
         boolean isStorageViewer = !master && webrtcEndpoint != null;
-        boolean shouldCreateVideo = !isStorageViewer;
+        boolean shouldCreateVideo = isVideoSent && !isStorageViewer;
         
         if (shouldCreateVideo) {
             videoCapturer = createVideoCapturer();
@@ -684,12 +638,9 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onIceCandidate(final IceCandidate iceCandidate) {
-
                 super.onIceCandidate(iceCandidate);
-
                 final Message message = createIceCandidateMessage(iceCandidate);
-                Log.d(TAG, "Sending IceCandidate to remote peer " + iceCandidate);
-                client.sendIceCandidate(message);  /* Send to Peer */
+                client.sendIceCandidate(message);
             }
 
             @Override
@@ -703,7 +654,6 @@ public class WebRtcActivity extends AppCompatActivity {
             @Override
             public void onIceConnectionChange(final PeerConnection.IceConnectionState iceConnectionState) {
                 super.onIceConnectionChange(iceConnectionState);
-                
                 if (iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connection to peer failed!", Toast.LENGTH_LONG).show());
                 } else if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
@@ -857,7 +807,6 @@ public class WebRtcActivity extends AppCompatActivity {
 
     // when mobile sdk is viewer (direct connection only)
     private void createSdpOffer() {
-
         MediaConstraints sdpMediaConstraints = new MediaConstraints();
 
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
@@ -867,47 +816,25 @@ public class WebRtcActivity extends AppCompatActivity {
             createLocalPeerConnection();
         }
 
-        Log.d(TAG, "=== CREATING SDP OFFER ===");
         localPeer.createOffer(new KinesisVideoSdpObserver() {
 
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-                Log.d(TAG, "✓ SDP Offer created successfully");
-                // Log.d(TAG, "Offer SDP content (first 200 chars): " + (sessionDescription.description.length() > 200 ? sessionDescription.description.substring(0, 200) + "..." : sessionDescription.description));
-                // Log.d(TAG, "Full offer SDP length: " + sessionDescription.description.length() + " characters");
-
                 super.onCreateSuccess(sessionDescription);
 
-                Log.d(TAG, "Setting local description (OFFER) on PeerConnection...");
-                localPeer.setLocalDescription(new KinesisVideoSdpObserver() {
-                    @Override
-                    public void onSetSuccess() {
-                        Log.d(TAG, "✓ Local description (OFFER) set successfully on PeerConnection");
-                        super.onSetSuccess();
-                    }
-                    
-                    @Override
-                    public void onSetFailure(String error) {
-                        Log.e(TAG, "✗ Failed to set local description (OFFER): " + error);
-                        super.onSetFailure(error);
-                    }
-                }, sessionDescription);
+                localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
 
                 final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
-                Log.d(TAG, "Sending SDP offer to signaling channel...");
 
                 if (isValidClient()) {
                     client.sendSdpOffer(sdpOfferMessage);
-                    Log.d(TAG, "✓ SDP Offer sent to signaling channel");
                 } else {
-                    Log.e(TAG, "✗ Signaling client invalid - cannot send offer");
                     notifySignalingConnectionFailed();
                 }
             }
             
             @Override
             public void onCreateFailure(String error) {
-                Log.e(TAG, "✗ Failed to create SDP offer: " + error);
                 super.onCreateFailure(error);
             }
         }, sdpMediaConstraints);
@@ -916,57 +843,29 @@ public class WebRtcActivity extends AppCompatActivity {
 
     // when local is set to be the master or storage session viewer
     private void createSdpAnswer() {
-
         final MediaConstraints sdpMediaConstraints = new MediaConstraints();
 
-        // Storage session viewers should receive video but may not send it
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
 
-        Log.d(TAG, "=== CREATING SDP ANSWER ===");
         localPeer.createAnswer(new KinesisVideoSdpObserver() {
 
             @Override
             public void onCreateSuccess(final SessionDescription sessionDescription) {
-                Log.d(TAG, "✓ SDP Answer created successfully");
-                // Log.d(TAG, "Answer SDP content (first 200 chars): " + (sessionDescription.description.length() > 200 ? sessionDescription.description.substring(0, 200) + "..." : sessionDescription.description));
-                // Log.d(TAG, "Full answer SDP length: " + sessionDescription.description.length() + " characters");
-                
                 super.onCreateSuccess(sessionDescription);
                 
-                Log.d(TAG, "Setting local description (ANSWER) on PeerConnection...");
-                localPeer.setLocalDescription(new KinesisVideoSdpObserver() {
-                    @Override
-                    public void onSetSuccess() {
-                        Log.d(TAG, "✓ Local description (ANSWER) set successfully on PeerConnection");
-                        super.onSetSuccess();
-                    }
-                    
-                    @Override
-                    public void onSetFailure(String error) {
-                        Log.e(TAG, "✗ Failed to set local description (ANSWER): " + error);
-                        super.onSetFailure(error);
-                    }
-                }, sessionDescription);
+                localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
                 
-                // For storage session viewers, send answer back to storage agent (recipientClientId is null)
                 final Message answer = Message.createAnswerMessage(sessionDescription, master, recipientClientId);
-                Log.d(TAG, "Sending SDP answer to signaling channel...");
-                // Log.d(TAG, "Answer recipient: " + (recipientClientId != null ? recipientClientId : "storage-agent"));
                 client.sendSdpAnswer(answer);
-                Log.d(TAG, "✓ SDP Answer sent to media server via signaling channel");
 
-                // Use appropriate client ID for tracking peer connection
-                String trackingClientId = recipientClientId != null ? recipientClientId : "storage-agent";
-                peerConnectionFoundMap.put(trackingClientId, localPeer);
-                handlePendingIceCandidates(trackingClientId);
+                peerConnectionFoundMap.put(recipientClientId, localPeer);
+                handlePendingIceCandidates(recipientClientId);
             }
 
             @Override
             public void onCreateFailure(final String error) {
                 super.onCreateFailure(error);
-
-                // Device is unable to support the requested media format
                 if (error.contains("ERROR_CONTENT")) {
                     Log.e(TAG, "No supported codec is present in the offer!");
                 }
