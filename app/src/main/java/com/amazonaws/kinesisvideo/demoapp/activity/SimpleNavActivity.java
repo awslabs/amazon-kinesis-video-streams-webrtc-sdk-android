@@ -5,6 +5,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
 
+import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
+
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -46,6 +48,11 @@ public class SimpleNavActivity extends AppCompatActivity
 
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
+        
+        // Disable logout menu item if using credentials from .env file
+        if (hasEnvSetting()) {
+            navigationView.getMenu().findItem(R.id.nav_logout).setEnabled(false);
+        }
 
         if (savedInstanceState != null) {
             streamFragment = getSupportFragmentManager().findFragmentByTag(StreamWebRtcConfigurationFragment.class.getName());
@@ -70,6 +77,11 @@ public class SimpleNavActivity extends AppCompatActivity
         int id = item.getItemId();
 
         if (id == R.id.nav_logout) {
+            if (hasEnvSetting()) {
+                Log.i(TAG, "Logout disabled when using credentials from .env file");
+                return true;
+            }
+            
             AWSMobileClient.getInstance().signOut();
             AWSMobileClient.getInstance().showSignIn(this,
                     SignInUIOptions.builder()
@@ -109,6 +121,18 @@ public class SimpleNavActivity extends AppCompatActivity
         } catch (Exception e) {
             Log.e(TAG, "Failed to go back to configure stream.");
             e.printStackTrace();
+        }
+    }
+    
+    private boolean hasEnvSetting() {
+        try {
+            String accessKeyId = BuildConfig.AWS_ACCESS_KEY_ID;
+            String secretAccessKey = BuildConfig.AWS_SECRET_ACCESS_KEY;
+            return accessKeyId != null && !accessKeyId.isEmpty() && !"null".equals(accessKeyId) &&
+                   secretAccessKey != null && !secretAccessKey.isEmpty() && !"null".equals(secretAccessKey);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to check credentials from .env file: " + e.getMessage());
+            return false;
         }
     }
 }

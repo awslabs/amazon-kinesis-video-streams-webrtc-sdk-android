@@ -16,6 +16,37 @@ android {
         versionName "1.1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Load .env file and set BuildConfig fields
+        def envFile = rootProject.file('.env')
+        def envFields = [:]
+        if (envFile.exists()) {
+            envFile.readLines().each {
+                def (key, value) = it.tokenize('=')
+                if (key && value) {
+                    envFields[key] = value
+                    buildConfigField "String", key, "\"${value}\""
+                }
+            }
+        }
+        
+        // Set default null values for missing fields
+        if (!envFields.containsKey('CUSTOM_ENDPOINT')) {
+            buildConfigField "String", "CUSTOM_ENDPOINT", "null"
+        }
+        if (!envFields.containsKey('AWS_ACCESS_KEY_ID')) {
+            buildConfigField "String", "AWS_ACCESS_KEY_ID", "null"
+        }
+        if (!envFields.containsKey('AWS_SECRET_ACCESS_KEY')) {
+            buildConfigField "String", "AWS_SECRET_ACCESS_KEY", "null"
+        }
+        if (!envFields.containsKey('AWS_SESSION_TOKEN')) {
+            buildConfigField "String", "AWS_SESSION_TOKEN", "null"
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {
