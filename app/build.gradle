@@ -31,8 +31,8 @@ android {
         }
         
         // Set default null values for missing fields
-        if (!envFields.containsKey('CUSTOM_ENDPOINT')) {
-            buildConfigField "String", "CUSTOM_ENDPOINT", "null"
+        if (!envFields.containsKey('CONTROL_PLANE_URI')) {
+            buildConfigField "String", "CONTROL_PLANE_URI", "null"
         }
         if (!envFields.containsKey('AWS_ACCESS_KEY_ID')) {
             buildConfigField "String", "AWS_ACCESS_KEY_ID", "null"

@@ -307,12 +307,12 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         awsKinesisVideoClient.setSignerRegionOverride(region);
         awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
         try {
-            String customEndpoint = BuildConfig.CUSTOM_ENDPOINT;
+            String customEndpoint = BuildConfig.CONTROL_PLANE_URI;
             if (customEndpoint != null && !customEndpoint.isEmpty() && !"null".equals(customEndpoint)) {
                 awsKinesisVideoClient.setEndpoint(customEndpoint);
             }
         } catch (Exception e) {
-            // CUSTOM_ENDPOINT not defined in .env
+            // CONTROL_PLANE_URI not defined in .env
         }
         
         return awsKinesisVideoClient;
