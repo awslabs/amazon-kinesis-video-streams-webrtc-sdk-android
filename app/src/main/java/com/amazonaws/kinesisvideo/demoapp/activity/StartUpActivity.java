@@ -44,7 +44,7 @@ public class StartUpActivity extends AppCompatActivity {
             }
             
             if (hasEnvSetting || auth.isSignedIn()) {
-                Log.i(TAG, hasEnvSetting ? "Using credentials from environmental seetting, skipping sign-in" : "User already signed in");
+                Log.i(TAG, hasEnvSetting ? "Using credentials from environmental seetting" : "User already signed in");
                 
                 if (hasEnvSetting) {
                     showCredentialsWarning();
@@ -99,6 +99,6 @@ public class StartUpActivity extends AppCompatActivity {
     }
     
     private void showCredentialsWarning() {
-        Log.w(TAG, "WARNING: Using environment settings - please follow standard AWS recommended practices for production (https://aws.amazon.com/cognito/);");
+        Log.w(TAG, "WARNING: Using environment settings - please follow standard AWS recommended practices for production (https://aws.amazon.com/cognito/)");
     }
 }
