@@ -218,10 +218,11 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onSdpOffer(final Event offerEvent) {
+                Log.d(TAG, "Received SDP Offer: Setting Remote Description ");
                 final String sdp = Event.parseOfferEvent(offerEvent);
-                
                 localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
                 recipientClientId = offerEvent.getSenderClientId();
+                Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
                 createSdpAnswer();
 
                 if (master && webrtcEndpoint != null) {
@@ -232,23 +233,21 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onSdpAnswer(final Event answerEvent) {
+                Log.d(TAG, "SDP answer received from signaling");
                 final String sdp = Event.parseSdpEvent(answerEvent);
                 final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
-                localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
-                    @Override
-                    public void onCreateFailure(final String error) {
-                        super.onCreateFailure(error);
-                    }
-                }, sdpAnswer);
+                localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), sdpAnswer);
                 
                 String answerClientId = answerEvent.getSenderClientId();
+                Log.d(TAG, "Answer Client ID: " + answerClientId);
                 peerConnectionFoundMap.put(answerClientId, localPeer);
                 handlePendingIceCandidates(answerClientId);
             }
 
             @Override
             public void onIceCandidate(final Event message) {
+                Log.d(TAG, "Received ICE candidate from remote");
                 final IceCandidate iceCandidate = Event.parseIceCandidate(message);
                 if (iceCandidate != null) {
                     checkAndAddIceCandidate(message, iceCandidate);
@@ -346,6 +345,8 @@ public class WebRtcActivity extends AppCompatActivity {
      * @see #pendingIceCandidatesMap
      */
     private void handlePendingIceCandidates(final String clientId) {
+        // Add any pending ICE candidates from the queue for the client ID
+        Log.d(TAG, "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
         final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(clientId);
         
         while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
@@ -353,8 +354,10 @@ public class WebRtcActivity extends AppCompatActivity {
             final PeerConnection peer = peerConnectionFoundMap.get(clientId);
             
             if (peer != null) {
-                peer.addIceCandidate(iceCandidate);
+                final boolean addIce = peer.addIceCandidate(iceCandidate);
+                Log.d(TAG, "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
             }
+            // After sending pending ICE candidates, the client ID's peer connection need not be tracked
             pendingIceCandidatesQueueByClientId.remove();
         }
         
@@ -362,9 +365,14 @@ public class WebRtcActivity extends AppCompatActivity {
     }
 
     private void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
+        // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
+        // Once the peer connection is found, add them directly instead of adding it to the queue.
         String senderClientId = message.getSenderClientId();
         
         if (!peerConnectionFoundMap.containsKey(senderClientId)) {
+            Log.d(TAG, "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
+
+            // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
             final Queue<IceCandidate> pendingIceCandidatesQueueByClientId;
             if (pendingIceCandidatesMap.containsKey(senderClientId)) {
                 pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(senderClientId);
@@ -376,10 +384,15 @@ public class WebRtcActivity extends AppCompatActivity {
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
                 pendingIceCandidatesMap.put(senderClientId, pendingIceCandidatesQueueByClientId);
             }
-        } else {
+        } 
+        // This is the case where peer connection is established and ICE candidates are received for the established connection
+        else {
+            Log.d(TAG, "Peer connection found already");
+            // Remote sent us ICE candidates, add to local peer connection
             final PeerConnection peer = peerConnectionFoundMap.get(senderClientId);
             if (peer != null){
-                peer.addIceCandidate(iceCandidate);
+                final boolean addIce = peer.addIceCandidate(iceCandidate);
+                Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
             }
         }
     }
@@ -502,8 +515,7 @@ public class WebRtcActivity extends AppCompatActivity {
                             .setUsername(mUserNames.get(i))
                             .setPassword(mPasswords.get(i))
                             .createIceServer();
-
-
+                    Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
                     peerIceServers.add(iceServer);
                 }
             }
@@ -640,14 +652,15 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onIceCandidate(final IceCandidate iceCandidate) {
                 super.onIceCandidate(iceCandidate);
                 final Message message = createIceCandidateMessage(iceCandidate);
-                client.sendIceCandidate(message);
+                Log.d(TAG, "Sending IceCandidate to remote peer " + iceCandidate);
+                client.sendIceCandidate(message);  /* Send to Peer */
             }
 
             @Override
             public void onAddStream(final MediaStream mediaStream) {
 
                 super.onAddStream(mediaStream);
-
+                Log.d(TAG, "Adding remote video stream (and audio) to the view");
                 addRemoteStreamToVideoView(mediaStream);
             }
 
@@ -661,15 +674,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 }
             }
 
-            @Override
-            public void onIceGatheringChange(final PeerConnection.IceGatheringState iceGatheringState) {
-                super.onIceGatheringChange(iceGatheringState);
-            }
 
-            @Override
-            public void onConnectionChange(final PeerConnection.PeerConnectionState newState) {
-                super.onConnectionChange(newState);
-            }
 
             @Override
             public void onDataChannel(final DataChannel dataChannel) {
@@ -683,7 +688,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
                     @Override
                     public void onStateChange() {
-                        // no op
+                        Log.d(TAG, "Remote Data Channel onStateChange: state: " + dataChannel.state().toString());
                     }
 
                     @Override
@@ -719,7 +724,14 @@ public class WebRtcActivity extends AppCompatActivity {
             }
         });
 
-        // Stats logging removed for production
+        if (localPeer != null) {
+            printStatsExecutor.scheduleWithFixedDelay(() -> localPeer.getStats(rtcStatsReport -> {
+                final Map<String, RTCStats> statsMap = rtcStatsReport.getStatsMap();
+                for (final Map.Entry<String, RTCStats> entry : statsMap.entrySet()) {
+                    Log.d(TAG, "Stats: " + entry.getKey() + ", " + entry.getValue());
+                }
+            }), 0, 10, TimeUnit.SECONDS);
+        }
 
         addDataChannelToLocalPeer();
         addStreamToLocalPeer();
@@ -832,11 +844,7 @@ public class WebRtcActivity extends AppCompatActivity {
                     notifySignalingConnectionFailed();
                 }
             }
-            
-            @Override
-            public void onCreateFailure(String error) {
-                super.onCreateFailure(error);
-            }
+
         }, sdpMediaConstraints);
     }
 
@@ -852,6 +860,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onCreateSuccess(final SessionDescription sessionDescription) {
+                Log.d(TAG, "Creating answer: success");
                 super.onCreateSuccess(sessionDescription);
                 
                 localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
@@ -866,6 +875,7 @@ public class WebRtcActivity extends AppCompatActivity {
             @Override
             public void onCreateFailure(final String error) {
                 super.onCreateFailure(error);
+                // Device is unable to support the requested media format
                 if (error.contains("ERROR_CONTENT")) {
                     Log.e(TAG, "No supported codec is present in the offer!");
                 }
