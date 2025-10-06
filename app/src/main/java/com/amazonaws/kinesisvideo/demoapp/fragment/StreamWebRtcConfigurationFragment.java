@@ -72,7 +72,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_ICE_SERVER_URI = "iceServerUri";
     public static final String KEY_CAMERA_FRONT_FACING = "cameraFrontFacing";
 
-    private static final String KEY_SEND_VIDEO = "sendVideo";
+    public static final String KEY_SEND_VIDEO = "sendVideo";
     public static final String KEY_SEND_AUDIO = "sendAudio";
 
     private static final String[] WEBRTC_OPTIONS = {
