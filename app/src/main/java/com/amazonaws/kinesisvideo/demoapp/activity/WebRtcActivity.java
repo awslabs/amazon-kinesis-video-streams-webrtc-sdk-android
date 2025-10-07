@@ -37,6 +37,7 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
@@ -139,6 +140,7 @@ public class WebRtcActivity extends AppCompatActivity {
     private final List<IceServer> peerIceServers = new ArrayList<>();
 
     private boolean gotException = false;
+    private boolean codecValidationFailed = false;
 
     private String recipientClientId;
 
@@ -359,6 +361,56 @@ public class WebRtcActivity extends AppCompatActivity {
     private boolean isStorageSession() {
         return webrtcEndpoint != null;
     }
+    
+    private boolean checkCodecSupport() {
+        // Need to create temporary EglBase for codec checking
+        EglBase tempEglBase = EglBase.create();
+        
+        final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(tempEglBase.getEglBaseContext());
+        boolean hasH264Decoder = false;
+        for (final VideoCodecInfo videoCodecInfo : vdf.getSupportedCodecs()) {
+            if ("H264".equalsIgnoreCase(videoCodecInfo.name)) {
+                hasH264Decoder = true;
+                break;
+            }
+        }
+        
+        final VideoEncoderFactory vef = new DefaultVideoEncoderFactory(tempEglBase.getEglBaseContext(),
+                ENABLE_INTEL_VP8_ENCODER, ENABLE_H264_HIGH_PROFILE);
+        boolean hasH264Encoder = false;
+        for (final VideoCodecInfo videoCodecInfo : vef.getSupportedCodecs()) {
+            if ("H264".equalsIgnoreCase(videoCodecInfo.name)) {
+                hasH264Encoder = true;
+                break;
+            }
+        }
+        
+        tempEglBase.release();
+        
+        // Check H.264 encoder support for master with ingest media
+        if (master && isStorageSession() && !hasH264Encoder) {
+            codecValidationFailed = true;
+            new AlertDialog.Builder(this)
+                    .setTitle("Codec Not Supported")
+                    .setMessage("This device does not have H.264 encoder support required for WebRTC ingestion.")
+                    .setPositiveButton("OK", (dialog, which) -> finish())
+                    .show();
+            return true;
+        }
+        
+        // Check H.264 decoder support for viewer with storage session
+        if (isStorageViewer() && !hasH264Decoder) {
+            codecValidationFailed = true;
+            new AlertDialog.Builder(this)
+                    .setTitle("Codec Not Supported")
+                    .setMessage("This device does not have H.264 decoder support required for WebRTC ingestion.")
+                    .setPositiveButton("OK", (dialog, which) -> finish())
+                    .show();
+            return true;
+        }
+        
+        return false; // Codec supported, continue
+    }
 
     /**
      * Called once the peer connection is established. Checks the pending ICE candidate queue to see
@@ -426,8 +478,10 @@ public class WebRtcActivity extends AppCompatActivity {
         Thread.setDefaultUncaughtExceptionHandler(null);
         printStatsExecutor.shutdownNow();
 
-        audioManager.setMode(originalAudioMode);
-        audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
+        if (audioManager != null) {
+            audioManager.setMode(originalAudioMode);
+            audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
+        }
 
         if (rootEglBase != null) {
             rootEglBase.release();
@@ -478,6 +532,11 @@ public class WebRtcActivity extends AppCompatActivity {
     @Override
     protected void onPostCreate(@Nullable Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
+
+        // Skip WebRTC initialization if codec validation failed
+        if (codecValidationFailed) {
+            return;
+        }
 
         // Start websocket after adding local audio/video tracks
         initWsConnection();
@@ -551,18 +610,16 @@ public class WebRtcActivity extends AppCompatActivity {
                 .InitializationOptions
                 .builder(this)
                 .createInitializationOptions());
+                
+        // Codec validation after WebRTC initialization but before UI setup
+        if (checkCodecSupport()) {
+            return; // Codec not supported, dialog shown, don't proceed
+        }
 
         final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
-        Log.d(TAG, "Available decoders on this device:");
-        for (final VideoCodecInfo videoCodecInfo : vdf.getSupportedCodecs()) {
-            Log.d(TAG, videoCodecInfo.name);
-        }
         final VideoEncoderFactory vef = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(),
                 ENABLE_INTEL_VP8_ENCODER, ENABLE_H264_HIGH_PROFILE);
-        Log.d(TAG, "Available encoders on this device:");
-        for (final VideoCodecInfo videoCodecInfo : vef.getSupportedCodecs()) {
-            Log.d(TAG, videoCodecInfo.name);
-        }
+        
         peerConnectionFactory =
                 PeerConnectionFactory.builder()
                         .setVideoDecoderFactory(vdf)
