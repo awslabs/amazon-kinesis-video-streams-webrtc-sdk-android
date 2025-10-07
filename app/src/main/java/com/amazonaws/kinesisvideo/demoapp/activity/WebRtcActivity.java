@@ -146,7 +146,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean master = true;
     private boolean isAudioSent = false;
-    private boolean isVideoSent = false;
+    private boolean isVideoSent = false; //See https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/API_webrtc_JoinStorageSessionAsViewer.html
 
     private EditText dataChannelText = null;
     private Button sendDataChannelButton = null;
@@ -205,7 +205,7 @@ public class WebRtcActivity extends AppCompatActivity {
             return;
         }
 
-        if (master || webrtcEndpoint != null) {
+        if (master || isStorageSession()) {
             // Create peer connection for masters and viewers using storage session
             createLocalPeerConnection();
         }
@@ -225,7 +225,7 @@ public class WebRtcActivity extends AppCompatActivity {
                 Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
                 createSdpAnswer();
 
-                if (master && webrtcEndpoint != null) {
+                if (master && isStorageSession()) {
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Media is being recorded to " + mStreamArn, Toast.LENGTH_LONG).show());
                     Log.i(TAG, "Media is being recorded to " + mStreamArn);
                 }
@@ -287,28 +287,14 @@ public class WebRtcActivity extends AppCompatActivity {
             Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
 
             // If webrtc endpoint is non-null ==> Ingest media was checked
-            if (webrtcEndpoint != null) {
+            if (isStorageSession()) {
                 new Thread(() -> {
                     try {
                         final AWSKinesisVideoWebRTCStorageClient storageClient =
                                 new AWSKinesisVideoWebRTCStorageClient(
                                         KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
-                        storageClient.setRegion(Region.getRegion(mRegion));
-                        storageClient.setSignerRegionOverride(mRegion);
-                        storageClient.setServiceNameIntern("kinesisvideo");
-                        storageClient.setEndpoint(webrtcEndpoint);
-
-                        Log.i(TAG, "Channel ARN is: " + mChannelArn);
-                        if (master) {
-                            storageClient.joinStorageSession(new JoinStorageSessionRequest()
-                                    .withChannelArn(mChannelArn));
-                            Log.i(TAG, "Join storage session request sent!");
-                        } else {
-                            storageClient.joinStorageSessionAsViewer(new JoinStorageSessionAsViewerRequest()
-                                    .withChannelArn(mChannelArn)
-                                    .withClientId(mClientId));
-                            Log.i(TAG, "Join storage session as viewer request sent!");
-                        }
+                        configureStorageClient(storageClient);
+                        joinStorageSession(storageClient);
                     } catch (Exception ex) {
                         Log.e(TAG, "Error sending join storage session request!", ex);
                     }
@@ -316,13 +302,13 @@ public class WebRtcActivity extends AppCompatActivity {
             }
             
             if (!master) {
-                // Only create SDP offer if NOT using storage session
-                if (webrtcEndpoint == null) {
+                // Only create SDP offer for Viewer participant without storage
+                if (!isStorageSession()) {
                     Log.d(TAG, "Signaling service is connected: " +
-                            "Sending offer as viewer to remote peer"); // Direct viewer
+                            "Sending offer as P2P viewer"); // Direct viewer
                     createSdpOffer();
                 } else {
-                    Log.d(TAG, "Viewer with storage session: Waiting for offer from storage agent");
+                    Log.d(TAG, "Multi-viewer participant: Waiting for offer from storage agent");
                     // Storage agent will send the offer, viewer just waits
                 }
             }
@@ -334,6 +320,44 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean isValidClient() {
         return client != null && client.isOpen();
+    }
+
+    private void configureStorageClient(AWSKinesisVideoWebRTCStorageClient storageClient) {
+        storageClient.setRegion(Region.getRegion(mRegion));
+        storageClient.setSignerRegionOverride(mRegion);
+        storageClient.setServiceNameIntern("kinesisvideo");
+        storageClient.setEndpoint(webrtcEndpoint);
+    }
+
+    private void joinStorageSession(AWSKinesisVideoWebRTCStorageClient storageClient) {
+        if (master) {
+            joinAsMaster(storageClient);
+        } else {
+            joinAsViewer(storageClient);
+        }
+    }
+
+    private void joinAsMaster(AWSKinesisVideoWebRTCStorageClient storageClient) {
+        JoinStorageSessionRequest request = new JoinStorageSessionRequest()
+                .withChannelArn(mChannelArn);
+        storageClient.joinStorageSession(request);
+        Log.i(TAG, "Master: Join storage session request sent for channel: " + mChannelArn);
+    }
+
+    private void joinAsViewer(AWSKinesisVideoWebRTCStorageClient storageClient) {
+        JoinStorageSessionAsViewerRequest request = new JoinStorageSessionAsViewerRequest()
+                .withChannelArn(mChannelArn)
+                .withClientId(mClientId);
+        storageClient.joinStorageSessionAsViewer(request);
+        Log.i(TAG, "Viewer: Join storage session request sent for channel: " + mChannelArn);
+    }
+
+    private boolean isStorageViewer() {
+        return !master && webrtcEndpoint != null;
+    }
+
+    private boolean isStorageSession() {
+        return webrtcEndpoint != null;
     }
 
     /**
@@ -551,8 +575,7 @@ public class WebRtcActivity extends AppCompatActivity {
         Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
 
         // Check if we should create video track based on user preference and session type
-        boolean isStorageViewer = !master && webrtcEndpoint != null;
-        boolean shouldCreateVideo = isVideoSent && !isStorageViewer;
+        boolean shouldCreateVideo = isVideoSent && !isStorageViewer();
         
         if (shouldCreateVideo) {
             videoCapturer = createVideoCapturer();

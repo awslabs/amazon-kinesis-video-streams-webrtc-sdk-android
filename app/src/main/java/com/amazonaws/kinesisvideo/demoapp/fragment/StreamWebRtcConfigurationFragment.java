@@ -188,18 +188,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private void startMasterActivity() {
         final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
         
-        // Check if Send Video is selected (position 0)
-        if (!checked.get(0)) {
-            new AlertDialog.Builder(getActivity())
-                    .setPositiveButton("OK", null)
-                    .setMessage("Send Video must be enabled to start as master!")
-                    .create()
-                    .show();
-            return;
-        }
-
         if (mIngestMedia.isChecked()) {
-            // Check that the "Send Audio" and "Send Video" boxes are enabled.
+            // Check that both "Send Audio" and "Send Video" boxes are enabled for ingest media
             for (int i = 0; i < mOptions.getCount(); i++) {
                 if (!checked.get(i)) {
                     new AlertDialog.Builder(getActivity())
@@ -243,7 +233,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         if (mIngestMedia.isChecked() && checked.get(0)) {
             new AlertDialog.Builder(getActivity())
                     .setPositiveButton("OK", null)
-                    .setMessage("Ingest Media for viewers can only be used with Send Audio, not Send Video!")
+                    .setMessage("Multi-viewer participant is allowed to send only audio; please deselect video for multiviewer option")
                     .create()
                     .show();
             return;
