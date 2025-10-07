@@ -24,7 +24,7 @@ public class KinesisVideoWebRtcDemoApp extends Application {
         return AWSMobileClient.getInstance();
     }
 
-    private static boolean hasEnvCredentials() {
+    public static boolean hasEnvCredentials() {
         try {
             String accessKeyId = BuildConfig.AWS_ACCESS_KEY_ID;
             String secretAccessKey = BuildConfig.AWS_SECRET_ACCESS_KEY;
@@ -43,7 +43,7 @@ public class KinesisVideoWebRtcDemoApp extends Application {
                 String secretAccessKey = BuildConfig.AWS_SECRET_ACCESS_KEY;
                 String sessionToken = BuildConfig.AWS_SESSION_TOKEN;
                 
-                if (accessKeyId == null || secretAccessKey == null) {
+                if (!hasEnvCredentials()) {
                     throw new RuntimeException("AWS credentials not available from .env");
                 }
                 
@@ -65,7 +65,7 @@ public class KinesisVideoWebRtcDemoApp extends Application {
 
     /**
      * Parse awsconfiguration.json and extract the region from it.
-     * If using .env credentials, return a default region.
+     * If using .env credentials, return a null region.
      *
      * @return The region in String form. {@code null} if not.
      * @throws IllegalStateException if awsconfiguration.json is not properly configured.
@@ -85,6 +85,7 @@ public class KinesisVideoWebRtcDemoApp extends Application {
 
             final JSONObject jsonObject = configuration.optJsonObject("CredentialsProvider");
             if (jsonObject == null) {
+                Log.w(TAG, "CredentialsProvider not found in awsconfiguration.json");
                 return null;
             }
 
@@ -97,7 +98,7 @@ public class KinesisVideoWebRtcDemoApp extends Application {
             return region;
         } catch (Exception e) {
             Log.w(TAG, "Failed to get region from awsconfiguration.json: " + e.getMessage());
-            return null; // Return null on any error, like it used to
+            return null; // Return null on any error
         }
     }
 

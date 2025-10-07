@@ -6,7 +6,7 @@ import android.util.Log;
 import android.view.MenuItem;
 
 import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
-
+import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -50,7 +50,7 @@ public class SimpleNavActivity extends AppCompatActivity
         navigationView.setNavigationItemSelectedListener(this);
         
         // Disable logout menu item if using credentials from .env file
-        if (hasEnvSetting()) {
+        if (KinesisVideoWebRtcDemoApp.hasEnvCredentials()) {
             navigationView.getMenu().findItem(R.id.nav_logout).setEnabled(false);
         }
 
@@ -77,7 +77,7 @@ public class SimpleNavActivity extends AppCompatActivity
         int id = item.getItemId();
 
         if (id == R.id.nav_logout) {
-            if (hasEnvSetting()) {
+            if (KinesisVideoWebRtcDemoApp.hasEnvCredentials()) {
                 Log.i(TAG, "Logout disabled when using credentials from .env file");
                 return true;
             }
@@ -124,15 +124,5 @@ public class SimpleNavActivity extends AppCompatActivity
         }
     }
     
-    private boolean hasEnvSetting() {
-        try {
-            String accessKeyId = BuildConfig.AWS_ACCESS_KEY_ID;
-            String secretAccessKey = BuildConfig.AWS_SECRET_ACCESS_KEY;
-            return accessKeyId != null && !accessKeyId.isEmpty() && !"null".equals(accessKeyId) &&
-                   secretAccessKey != null && !secretAccessKey.isEmpty() && !"null".equals(secretAccessKey);
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to check credentials from .env file: " + e.getMessage());
-            return false;
-        }
-    }
+
 }

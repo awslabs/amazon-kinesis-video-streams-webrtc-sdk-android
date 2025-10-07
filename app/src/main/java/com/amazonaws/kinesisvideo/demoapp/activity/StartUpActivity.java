@@ -9,6 +9,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
+import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.util.ActivityUtils;
 import com.amazonaws.mobile.client.AWSMobileClient;
@@ -33,15 +34,7 @@ public class StartUpActivity extends AppCompatActivity {
 
         AsyncTask.execute(() -> {
             // Check if custom credentials are available in .env
-            boolean hasEnvSetting = false;
-            try {
-                String accessKeyId = BuildConfig.AWS_ACCESS_KEY_ID;
-                String secretAccessKey = BuildConfig.AWS_SECRET_ACCESS_KEY;
-                hasEnvSetting = accessKeyId != null && !accessKeyId.isEmpty() && !"null".equals(accessKeyId) &&
-                                     secretAccessKey != null && !secretAccessKey.isEmpty() && !"null".equals(secretAccessKey);
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to check custom credentials: " + e.getMessage());
-            }
+            boolean hasEnvSetting = KinesisVideoWebRtcDemoApp.hasEnvCredentials();
             
             if (hasEnvSetting || auth.isSignedIn()) {
                 Log.i(TAG, hasEnvSetting ? "Using credentials from environmental seetting" : "User already signed in");
@@ -99,6 +92,6 @@ public class StartUpActivity extends AppCompatActivity {
     }
     
     private void showCredentialsWarning() {
-        Log.w(TAG, "WARNING: Using environment settings - please follow standard AWS recommended practices for production (https://aws.amazon.com/cognito/)");
+        Log.w(TAG, "WARNING: Using environment settings - please follow standard AWS recommended practices for production (https://docs.aws.amazon.com/cognito/)");
     }
 }
