@@ -324,7 +324,7 @@ public class WebRtcActivity extends AppCompatActivity {
         return client != null && client.isOpen();
     }
 
-    private void configureStorageClient(AWSKinesisVideoWebRTCStorageClient storageClient) {
+    private void configureStorageClient(final AWSKinesisVideoWebRTCStorageClient storageClient) {
         storageClient.setRegion(Region.getRegion(mRegion));
         storageClient.setSignerRegionOverride(mRegion);
         storageClient.setServiceNameIntern("kinesisvideo");
@@ -364,7 +364,7 @@ public class WebRtcActivity extends AppCompatActivity {
     
     private boolean checkCodecSupport() {
         // Need to create temporary EglBase for codec checking
-        EglBase tempEglBase = EglBase.create();
+        final EglBase tempEglBase = EglBase.create();
         
         final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(tempEglBase.getEglBaseContext());
         boolean hasH264Decoder = false;
@@ -617,8 +617,17 @@ public class WebRtcActivity extends AppCompatActivity {
         }
 
         final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
+        Log.d(TAG, "Available decoders on this device:");
+        for (final VideoCodecInfo videoCodecInfo : vdf.getSupportedCodecs()) {
+            Log.d(TAG, videoCodecInfo.name);
+        }
+        
         final VideoEncoderFactory vef = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(),
                 ENABLE_INTEL_VP8_ENCODER, ENABLE_H264_HIGH_PROFILE);
+        Log.d(TAG, "Available encoders on this device:");
+        for (final VideoCodecInfo videoCodecInfo : vef.getSupportedCodecs()) {
+            Log.d(TAG, videoCodecInfo.name);
+        }
         
         peerConnectionFactory =
                 PeerConnectionFactory.builder()
