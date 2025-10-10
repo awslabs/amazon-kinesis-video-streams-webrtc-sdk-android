@@ -299,6 +299,17 @@ public class WebRtcActivity extends AppCompatActivity {
                         joinStorageSession(storageClient);
                     } catch (Exception ex) {
                         Log.e(TAG, "Error sending join storage session request!", ex);
+                        runOnUiThread(() -> {
+                            new AlertDialog.Builder(WebRtcActivity.this)
+                                        .setTitle("Storage session Error")
+                                        .setMessage("Error sending join storage session request: " + ex.getMessage())
+                                        .setPositiveButton("OK", (dialog, which) -> {
+                                            dialog.dismiss();
+                                            finish();
+                                        })
+                                        .show();
+                        });
+                        return; //prevent any code after from executing                           
                     }
                 }).start();
             }
