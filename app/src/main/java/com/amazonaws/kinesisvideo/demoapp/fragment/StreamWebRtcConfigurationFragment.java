@@ -1,6 +1,7 @@
 package com.amazonaws.kinesisvideo.demoapp.fragment;
 
 import android.Manifest;
+import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
@@ -313,6 +314,15 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         awsKinesisVideoClient.setRegion(Region.getRegion(region));
         awsKinesisVideoClient.setSignerRegionOverride(region);
         awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
+        try {
+            String customEndpoint = BuildConfig.CONTROL_PLANE_URI;
+            if (customEndpoint != null && !customEndpoint.isEmpty() && !"null".equals(customEndpoint)) {
+                awsKinesisVideoClient.setEndpoint(customEndpoint);
+            }
+        } catch (Exception e) {
+            // CONTROL_PLANE_URI not defined in .env
+        }
+        
         return awsKinesisVideoClient;
     }
 
