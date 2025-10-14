@@ -679,6 +679,11 @@ public class WebRtcActivity extends AppCompatActivity {
             localView.init(rootEglBase.getEglBaseContext(), null);
         }
 
+        // Hide local view if not sending video
+        if (!isVideoSent) {
+            localView.setVisibility(View.GONE);
+        }
+
         if (isAudioSent) {
             AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
             localAudioTrack = peerConnectionFactory.createAudioTrack(AudioTrackID, audioSource);
@@ -696,6 +701,11 @@ public class WebRtcActivity extends AppCompatActivity {
 
         dataChannelText = findViewById(R.id.data_channel_text);
         sendDataChannelButton = findViewById(R.id.send_data_channel_text);
+        // Disable data channel functionality when WebRTC Storage Session is enabled
+        if (isStorageSession()) {
+            dataChannelText.setVisibility(View.GONE);
+            sendDataChannelButton.setVisibility(View.GONE);
+        }
 
         createNotificationChannel();
     }
