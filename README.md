@@ -89,7 +89,33 @@ Once login is successful, you will entering the following channel information to
   * Start the web browser using the [Javascript SDK](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-js) and start it as `viewer`.
   * Verify media showing up from the Android device to the browser.
 
-## 6. ICE Candidate Trickling
+## 6. WebRTC Ingestion support
+
+The sample application demonstrates how to connect to the KVS WebRTC storage session as a master or viewer participant.
+
+For more information about WebRTC ingestion, see https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/webrtc-ingestion.html.
+
+  ### 6.1 Setting up signaling channel and stream
+
+Follow the instructions below to:
+1. Create the signaling channel: https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/ingestion-create-channel.html
+2. Create the stream: https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/ingestion-create-stream.html
+3. Link the signaling channel and stream: https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/configure-ingestion.html
+4. Configure the IAM role with the correct permissions: https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/ingestion-grant-permission.html
+
+  ### 6.2 Prerequisites
+
+* Ensure H.264 and OPUS codec support is available on the device
+
+Usage:
+  1. Master with Ingest Media: Check the "Ingest Media" option and ensure both "Send Audio" and "Send Video" are selected. The master will stream audio and video to the KVS WebRTC storage session, who forwards it to all connected viewer participants and the configured Kinesis Video stream.
+
+  2. Viewer with Ingest Media: Check the "Ingest Media" option but only select "Send Audio" (video must be deselected). Multiple viewer participants (at most three) can connect to the same channel and their optional audio will be incorporated into the Kinesis Video stream, forwarded to the master participant, and forwarded to all other viewer participants.
+
+> [!NOTE]
+> Android emulators may not have H.264 encoding support. A pop-up error will appear if the device you're using does not have H.264 encoding support for master participants or H.264 decoding support for viewer participants.
+
+## 7. ICE Candidate Trickling
 
 Candidate trickling is a technique through which a caller may incrementally provide candidates to the callee after the initial offer has been dispatched; the semantics of "Trickle ICE" are defined in [RFC8838].
 
@@ -100,7 +126,7 @@ However, in the case that it needs to be disabled, locate the RTCConfiguration p
 PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration();
 rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
 ```
-## 7. Testing
+## 8. Testing
 This SDK has been tested with Java 11, 17 to build the Gradle dependencies and Java 8, 11, and, 17 in the compile options in build.gradle
 
 ```agsl
