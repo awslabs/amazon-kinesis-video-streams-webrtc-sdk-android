@@ -13,9 +13,40 @@ android {
         minSdk 29
         targetSdk 33
         versionCode 1
-        versionName "1.1.0"
+        versionName "1.2.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Load .env file and set BuildConfig fields
+        def envFile = rootProject.file('.env')
+        def envFields = [:]
+        if (envFile.exists()) {
+            envFile.readLines().each {
+                def (key, value) = it.tokenize('=')
+                if (key && value) {
+                    envFields[key] = value
+                    buildConfigField "String", key, "\"${value}\""
+                }
+            }
+        }
+        
+        // Set default null values for missing fields
+        if (!envFields.containsKey('CONTROL_PLANE_URI')) {
+            buildConfigField "String", "CONTROL_PLANE_URI", "null"
+        }
+        if (!envFields.containsKey('AWS_ACCESS_KEY_ID')) {
+            buildConfigField "String", "AWS_ACCESS_KEY_ID", "null"
+        }
+        if (!envFields.containsKey('AWS_SECRET_ACCESS_KEY')) {
+            buildConfigField "String", "AWS_SECRET_ACCESS_KEY", "null"
+        }
+        if (!envFields.containsKey('AWS_SESSION_TOKEN')) {
+            buildConfigField "String", "AWS_SESSION_TOKEN", "null"
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {
@@ -34,7 +65,7 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
 
-    def aws_version = '2.75.0'
+    def aws_version = '2.81.1'
     implementation("com.amazonaws:aws-android-sdk-kinesisvideo:$aws_version@aar") { transitive = true }
     implementation("com.amazonaws:aws-android-sdk-kinesisvideo-signaling:$aws_version@aar") { transitive = true }
     implementation("com.amazonaws:aws-android-sdk-kinesisvideo-webrtcstorage:$aws_version@aar") { transitive = true }

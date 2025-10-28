@@ -9,6 +9,7 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_IS_MASTER;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_REGION;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_SEND_AUDIO;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_SEND_VIDEO;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_STREAM_ARN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
@@ -36,6 +37,7 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
@@ -56,6 +58,7 @@ import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideowebrtcstorage.AWSKinesisVideoWebRTCStorageClient;
 import com.amazonaws.services.kinesisvideowebrtcstorage.model.JoinStorageSessionRequest;
+import com.amazonaws.services.kinesisvideowebrtcstorage.model.JoinStorageSessionAsViewerRequest;
 import com.google.common.base.Strings;
 
 import org.webrtc.AudioSource;
@@ -137,6 +140,7 @@ public class WebRtcActivity extends AppCompatActivity {
     private final List<IceServer> peerIceServers = new ArrayList<>();
 
     private boolean gotException = false;
+    private boolean codecValidationFailed = false;
 
     private String recipientClientId;
 
@@ -144,6 +148,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean master = true;
     private boolean isAudioSent = false;
+    private boolean isVideoSent = false; //See https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/API_webrtc_JoinStorageSessionAsViewer.html
 
     private EditText dataChannelText = null;
     private Button sendDataChannelButton = null;
@@ -202,7 +207,8 @@ public class WebRtcActivity extends AppCompatActivity {
             return;
         }
 
-        if (master) {
+        if (master || isStorageSession()) {
+            // Create peer connection for masters and viewers using storage session
             createLocalPeerConnection();
         }
 
@@ -215,16 +221,13 @@ public class WebRtcActivity extends AppCompatActivity {
             @Override
             public void onSdpOffer(final Event offerEvent) {
                 Log.d(TAG, "Received SDP Offer: Setting Remote Description ");
-
                 final String sdp = Event.parseOfferEvent(offerEvent);
-
                 localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
                 recipientClientId = offerEvent.getSenderClientId();
                 Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
-
                 createSdpAnswer();
 
-                if (master && webrtcEndpoint != null) {
+                if (master && isStorageSession()) {
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Media is being recorded to " + mStreamArn, Toast.LENGTH_LONG).show());
                     Log.i(TAG, "Media is being recorded to " + mStreamArn);
                 }
@@ -232,24 +235,16 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onSdpAnswer(final Event answerEvent) {
-
                 Log.d(TAG, "SDP answer received from signaling");
-
                 final String sdp = Event.parseSdpEvent(answerEvent);
-
                 final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
-                localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
-                    @Override
-                    public void onCreateFailure(final String error) {
-                        super.onCreateFailure(error);
-                    }
-                }, sdpAnswer);
-                Log.d(TAG, "Answer Client ID: " + answerEvent.getSenderClientId());
-                peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
-                // Check if ICE candidates are available in the queue and add the candidate
-                handlePendingIceCandidates(answerEvent.getSenderClientId());
-
+                localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), sdpAnswer);
+                
+                String answerClientId = answerEvent.getSenderClientId();
+                Log.d(TAG, "Answer Client ID: " + answerClientId);
+                peerConnectionFoundMap.put(answerClientId, localPeer);
+                handlePendingIceCandidates(answerClientId);
             }
 
             @Override
@@ -293,34 +288,42 @@ public class WebRtcActivity extends AppCompatActivity {
 
             Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
 
-            if (master) {
-
-                // If webrtc endpoint is non-null ==> Ingest media was checked
-                if (webrtcEndpoint != null) {
-                    new Thread(() -> {
-                        try {
-                            final AWSKinesisVideoWebRTCStorageClient storageClient =
-                                    new AWSKinesisVideoWebRTCStorageClient(
-                                            KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
-                            storageClient.setRegion(Region.getRegion(mRegion));
-                            storageClient.setSignerRegionOverride(mRegion);
-                            storageClient.setServiceNameIntern("kinesisvideo");
-                            storageClient.setEndpoint(webrtcEndpoint);
-
-                            Log.i(TAG, "Channel ARN is: " + mChannelArn);
-                            storageClient.joinStorageSession(new JoinStorageSessionRequest()
-                                    .withChannelArn(mChannelArn));
-                            Log.i(TAG, "Join storage session request sent!");
-                        } catch (Exception ex) {
-                            Log.e(TAG, "Error sending join storage session request!", ex);
-                        }
-                    }).start();
+            // If webrtc endpoint is non-null ==> Ingest media was checked
+            if (isStorageSession()) {
+                new Thread(() -> {
+                    try {
+                        final AWSKinesisVideoWebRTCStorageClient storageClient =
+                                new AWSKinesisVideoWebRTCStorageClient(
+                                        KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+                        configureStorageClient(storageClient);
+                        joinStorageSession(storageClient);
+                    } catch (Exception ex) {
+                        Log.e(TAG, "Error sending join storage session request!", ex);
+                        runOnUiThread(() -> {
+                            new AlertDialog.Builder(WebRtcActivity.this)
+                                        .setTitle("Storage session Error")
+                                        .setMessage("Error sending join storage session request: " + ex.getMessage())
+                                        .setPositiveButton("OK", (dialog, which) -> {
+                                            dialog.dismiss();
+                                            finish();
+                                        })
+                                        .show();
+                        });
+                        return; //prevent any code after from executing                           
+                    }
+                }).start();
+            }
+            
+            if (!master) {
+                // Only create SDP offer for Viewer participant without storage
+                if (!isStorageSession()) {
+                    Log.d(TAG, "Signaling service is connected: " +
+                            "Sending offer as P2P viewer"); // Direct viewer
+                    createSdpOffer();
+                } else {
+                    Log.d(TAG, "Multi-viewer participant: Waiting for offer from storage agent");
+                    // Storage agent will send the offer, viewer just waits
                 }
-            } else {
-                Log.d(TAG, "Signaling service is connected: " +
-                        "Sending offer as viewer to remote peer"); // Viewer
-
-                createSdpOffer();
             }
         } else {
             Log.e(TAG, "Error in connecting to signaling service");
@@ -330,6 +333,94 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean isValidClient() {
         return client != null && client.isOpen();
+    }
+
+    private void configureStorageClient(final AWSKinesisVideoWebRTCStorageClient storageClient) {
+        storageClient.setRegion(Region.getRegion(mRegion));
+        storageClient.setSignerRegionOverride(mRegion);
+        storageClient.setServiceNameIntern("kinesisvideo");
+        storageClient.setEndpoint(webrtcEndpoint);
+    }
+
+    private void joinStorageSession(AWSKinesisVideoWebRTCStorageClient storageClient) {
+        if (master) {
+            joinAsMaster(storageClient);
+        } else {
+            joinAsViewer(storageClient);
+        }
+    }
+
+    private void joinAsMaster(AWSKinesisVideoWebRTCStorageClient storageClient) {
+        JoinStorageSessionRequest request = new JoinStorageSessionRequest()
+                .withChannelArn(mChannelArn);
+        storageClient.joinStorageSession(request);
+        Log.i(TAG, "Master: Join storage session request sent for channel: " + mChannelArn);
+    }
+
+    private void joinAsViewer(AWSKinesisVideoWebRTCStorageClient storageClient) {
+        JoinStorageSessionAsViewerRequest request = new JoinStorageSessionAsViewerRequest()
+                .withChannelArn(mChannelArn)
+                .withClientId(mClientId);
+        storageClient.joinStorageSessionAsViewer(request);
+        Log.i(TAG, "Viewer: Join storage session request sent for channel: " + mChannelArn);
+    }
+
+    private boolean isStorageViewer() {
+        return !master && webrtcEndpoint != null;
+    }
+
+    private boolean isStorageSession() {
+        return webrtcEndpoint != null;
+    }
+    
+    private boolean checkCodecSupport() {
+        // Need to create temporary EglBase for codec checking
+        final EglBase tempEglBase = EglBase.create();
+        
+        final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(tempEglBase.getEglBaseContext());
+        boolean hasH264Decoder = false;
+        for (final VideoCodecInfo videoCodecInfo : vdf.getSupportedCodecs()) {
+            if ("H264".equalsIgnoreCase(videoCodecInfo.name)) {
+                hasH264Decoder = true;
+                break;
+            }
+        }
+        
+        final VideoEncoderFactory vef = new DefaultVideoEncoderFactory(tempEglBase.getEglBaseContext(),
+                ENABLE_INTEL_VP8_ENCODER, ENABLE_H264_HIGH_PROFILE);
+        boolean hasH264Encoder = false;
+        for (final VideoCodecInfo videoCodecInfo : vef.getSupportedCodecs()) {
+            if ("H264".equalsIgnoreCase(videoCodecInfo.name)) {
+                hasH264Encoder = true;
+                break;
+            }
+        }
+        
+        tempEglBase.release();
+        
+        // Check H.264 encoder support for master with ingest media
+        if (master && isStorageSession() && !hasH264Encoder) {
+            codecValidationFailed = true;
+            new AlertDialog.Builder(this)
+                    .setTitle("Codec Not Supported")
+                    .setMessage("This device does not have H.264 encoder support required for WebRTC ingestion.")
+                    .setPositiveButton("OK", (dialog, which) -> finish())
+                    .show();
+            return true;
+        }
+        
+        // Check H.264 decoder support for viewer with storage session
+        if (isStorageViewer() && !hasH264Decoder) {
+            codecValidationFailed = true;
+            new AlertDialog.Builder(this)
+                    .setTitle("Codec Not Supported")
+                    .setMessage("This device does not have H.264 decoder support required for WebRTC ingestion.")
+                    .setPositiveButton("OK", (dialog, which) -> finish())
+                    .show();
+            return true;
+        }
+        
+        return false; // Codec supported, continue
     }
 
     /**
@@ -344,49 +435,48 @@ public class WebRtcActivity extends AppCompatActivity {
         // Add any pending ICE candidates from the queue for the client ID
         Log.d(TAG, "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
         final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(clientId);
+        
         while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
             final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
             final PeerConnection peer = peerConnectionFoundMap.get(clientId);
+            
             if (peer != null) {
                 final boolean addIce = peer.addIceCandidate(iceCandidate);
                 Log.d(TAG, "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
             }
+            // After sending pending ICE candidates, the client ID's peer connection need not be tracked
             pendingIceCandidatesQueueByClientId.remove();
         }
-        // After sending pending ICE candidates, the client ID's peer connection need not be tracked
+        
         pendingIceCandidatesMap.remove(clientId);
     }
 
     private void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
         // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
         // Once the peer connection is found, add them directly instead of adding it to the queue.
-
-        if (!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
+        String senderClientId = message.getSenderClientId();
+        
+        if (!peerConnectionFoundMap.containsKey(senderClientId)) {
             Log.d(TAG, "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
 
             // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
             final Queue<IceCandidate> pendingIceCandidatesQueueByClientId;
-            if (pendingIceCandidatesMap.containsKey(message.getSenderClientId())) {
-                pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.getSenderClientId());
-            }
-
-            // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
-            else {
+            if (pendingIceCandidatesMap.containsKey(senderClientId)) {
+                pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(senderClientId);
+            } else {
                 pendingIceCandidatesQueueByClientId = new LinkedList<>();
             }
 
             if (pendingIceCandidatesQueueByClientId != null) {
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+                pendingIceCandidatesMap.put(senderClientId, pendingIceCandidatesQueueByClientId);
             }
-        }
-
-        // This is the case where peer connection is established and ICE candidates are received for the established
-        // connection
+        } 
+        // This is the case where peer connection is established and ICE candidates are received for the established connection
         else {
             Log.d(TAG, "Peer connection found already");
             // Remote sent us ICE candidates, add to local peer connection
-            final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
+            final PeerConnection peer = peerConnectionFoundMap.get(senderClientId);
             if (peer != null){
                 final boolean addIce = peer.addIceCandidate(iceCandidate);
                 Log.d(TAG, "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
@@ -399,8 +489,10 @@ public class WebRtcActivity extends AppCompatActivity {
         Thread.setDefaultUncaughtExceptionHandler(null);
         printStatsExecutor.shutdownNow();
 
-        audioManager.setMode(originalAudioMode);
-        audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
+        if (audioManager != null) {
+            audioManager.setMode(originalAudioMode);
+            audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
+        }
 
         if (rootEglBase != null) {
             rootEglBase.release();
@@ -452,6 +544,11 @@ public class WebRtcActivity extends AppCompatActivity {
     protected void onPostCreate(@Nullable Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
 
+        // Skip WebRTC initialization if codec validation failed
+        if (codecValidationFailed) {
+            return;
+        }
+
         // Start websocket after adding local audio/video tracks
         initWsConnection();
 
@@ -486,6 +583,7 @@ public class WebRtcActivity extends AppCompatActivity {
         }
         master = intent.getBooleanExtra(KEY_IS_MASTER, true);
         isAudioSent = intent.getBooleanExtra(KEY_SEND_AUDIO, false);
+        isVideoSent = intent.getBooleanExtra(KEY_SEND_VIDEO, false);
         ArrayList<String> mUserNames = intent.getStringArrayListExtra(KEY_ICE_SERVER_USER_NAME);
         ArrayList<String> mPasswords = intent.getStringArrayListExtra(KEY_ICE_SERVER_PASSWORD);
         ArrayList<List<String>> mUrisList = (ArrayList<List<String>>) intent.getSerializableExtra(KEY_ICE_SERVER_URI);
@@ -511,7 +609,6 @@ public class WebRtcActivity extends AppCompatActivity {
                             .setUsername(mUserNames.get(i))
                             .setPassword(mPasswords.get(i))
                             .createIceServer();
-
                     Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
                     peerIceServers.add(iceServer);
                 }
@@ -524,18 +621,25 @@ public class WebRtcActivity extends AppCompatActivity {
                 .InitializationOptions
                 .builder(this)
                 .createInitializationOptions());
+                
+        // Codec validation after WebRTC initialization but before UI setup
+        if (checkCodecSupport()) {
+            return; // Codec not supported, dialog shown, don't proceed
+        }
 
         final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
         Log.d(TAG, "Available decoders on this device:");
         for (final VideoCodecInfo videoCodecInfo : vdf.getSupportedCodecs()) {
             Log.d(TAG, videoCodecInfo.name);
         }
+        
         final VideoEncoderFactory vef = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(),
                 ENABLE_INTEL_VP8_ENCODER, ENABLE_H264_HIGH_PROFILE);
         Log.d(TAG, "Available encoders on this device:");
         for (final VideoCodecInfo videoCodecInfo : vef.getSupportedCodecs()) {
             Log.d(TAG, videoCodecInfo.name);
         }
+        
         peerConnectionFactory =
                 PeerConnectionFactory.builder()
                         .setVideoDecoderFactory(vdf)
@@ -547,20 +651,38 @@ public class WebRtcActivity extends AppCompatActivity {
         // Enable Google WebRTC debug logs
         Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
 
-        videoCapturer = createVideoCapturer();
+        // Check if we should create video track based on user preference and session type
+        boolean shouldCreateVideo = isVideoSent && !isStorageViewer();
+        
+        if (shouldCreateVideo) {
+            videoCapturer = createVideoCapturer();
 
-        // Local video view
-        localView = findViewById(R.id.local_view);
-        localView.init(rootEglBase.getEglBaseContext(), null);
-        localView.setEnableHardwareScaler(true);
+            // Local video view
+            localView = findViewById(R.id.local_view);
+            localView.init(rootEglBase.getEglBaseContext(), null);
+            localView.setEnableHardwareScaler(true);
 
+            videoSource = peerConnectionFactory.createVideoSource(false);
+            SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().getName(), rootEglBase.getEglBaseContext());
+            videoCapturer.initialize(surfaceTextureHelper, this.getApplicationContext(), videoSource.getCapturerObserver());
 
-        videoSource = peerConnectionFactory.createVideoSource(false);
-        SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().getName(), rootEglBase.getEglBaseContext());
-        videoCapturer.initialize(surfaceTextureHelper, this.getApplicationContext(), videoSource.getCapturerObserver());
+            localVideoTrack = peerConnectionFactory.createVideoTrack(VideoTrackID, videoSource);
+            localVideoTrack.addSink(localView);
+            
+            // Start capturing video
+            videoCapturer.startCapture(VIDEO_SIZE_WIDTH, VIDEO_SIZE_HEIGHT, VIDEO_FPS);
+            localVideoTrack.setEnabled(true);
+        } else {
+            Log.d(TAG, "Storage session viewer - skipping video track creation");
+            // Still initialize local view for UI consistency
+            localView = findViewById(R.id.local_view);
+            localView.init(rootEglBase.getEglBaseContext(), null);
+        }
 
-        localVideoTrack = peerConnectionFactory.createVideoTrack(VideoTrackID, videoSource);
-        localVideoTrack.addSink(localView);
+        // Hide local view if not sending video
+        if (!isVideoSent) {
+            localView.setVisibility(View.GONE);
+        }
 
         if (isAudioSent) {
             AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
@@ -572,15 +694,18 @@ public class WebRtcActivity extends AppCompatActivity {
         originalAudioMode = audioManager.getMode();
         originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
 
-        // Start capturing video
-        videoCapturer.startCapture(VIDEO_SIZE_WIDTH, VIDEO_SIZE_HEIGHT, VIDEO_FPS);
-        localVideoTrack.setEnabled(true);
+
 
         remoteView = findViewById(R.id.remote_view);
         remoteView.init(rootEglBase.getEglBaseContext(), null);
 
         dataChannelText = findViewById(R.id.data_channel_text);
         sendDataChannelButton = findViewById(R.id.send_data_channel_text);
+        // Disable data channel functionality when WebRTC Storage Session is enabled
+        if (isStorageSession()) {
+            dataChannelText.setVisibility(View.GONE);
+            sendDataChannelButton.setVisibility(View.GONE);
+        }
 
         createNotificationChannel();
     }
@@ -635,9 +760,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onIceCandidate(final IceCandidate iceCandidate) {
-
                 super.onIceCandidate(iceCandidate);
-
                 final Message message = createIceCandidateMessage(iceCandidate);
                 Log.d(TAG, "Sending IceCandidate to remote peer " + iceCandidate);
                 client.sendIceCandidate(message);  /* Send to Peer */
@@ -647,9 +770,7 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onAddStream(final MediaStream mediaStream) {
 
                 super.onAddStream(mediaStream);
-
                 Log.d(TAG, "Adding remote video stream (and audio) to the view");
-
                 addRemoteStreamToVideoView(mediaStream);
             }
 
@@ -662,6 +783,8 @@ public class WebRtcActivity extends AppCompatActivity {
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Connected to peer!", Toast.LENGTH_LONG).show());
                 }
             }
+
+
 
             @Override
             public void onDataChannel(final DataChannel dataChannel) {
@@ -749,15 +872,16 @@ public class WebRtcActivity extends AppCompatActivity {
 
         final MediaStream stream = peerConnectionFactory.createLocalMediaStream(LOCAL_MEDIA_STREAM_LABEL);
 
-        if (!stream.addTrack(localVideoTrack)) {
-            Log.e(TAG, "Add video track failed");
+        // Only add video track if it was created (not for storage session viewers)
+        if (localVideoTrack != null) {
+            if (!stream.addTrack(localVideoTrack)) {
+                Log.e(TAG, "Add video track failed");
+            }
+            localPeer.addTrack(stream.videoTracks.get(0), Collections.singletonList(stream.getId()));
         }
-
-        localPeer.addTrack(stream.videoTracks.get(0), Collections.singletonList(stream.getId()));
 
         if (isAudioSent) {
             if (!stream.addTrack(localAudioTrack)) {
-
                 Log.e(TAG, "Add audio track failed");
             }
 
@@ -803,16 +927,14 @@ public class WebRtcActivity extends AppCompatActivity {
         });
     }
 
-    // when mobile sdk is viewer
+    // when mobile sdk is viewer (direct connection only)
     private void createSdpOffer() {
-
         MediaConstraints sdpMediaConstraints = new MediaConstraints();
 
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
 
         if (localPeer == null) {
-
             createLocalPeerConnection();
         }
 
@@ -820,7 +942,6 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-
                 super.onCreateSuccess(sessionDescription);
 
                 localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
@@ -833,13 +954,13 @@ public class WebRtcActivity extends AppCompatActivity {
                     notifySignalingConnectionFailed();
                 }
             }
+
         }, sdpMediaConstraints);
     }
 
 
-    // when local is set to be the master
+    // when local is set to be the master or storage session viewer
     private void createSdpAnswer() {
-
         final MediaConstraints sdpMediaConstraints = new MediaConstraints();
 
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
@@ -851,7 +972,9 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onCreateSuccess(final SessionDescription sessionDescription) {
                 Log.d(TAG, "Creating answer: success");
                 super.onCreateSuccess(sessionDescription);
+                
                 localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
+                
                 final Message answer = Message.createAnswerMessage(sessionDescription, master, recipientClientId);
                 client.sendSdpAnswer(answer);
 
@@ -862,7 +985,6 @@ public class WebRtcActivity extends AppCompatActivity {
             @Override
             public void onCreateFailure(final String error) {
                 super.onCreateFailure(error);
-
                 // Device is unable to support the requested media format
                 if (error.contains("ERROR_CONTENT")) {
                     Log.e(TAG, "No supported codec is present in the offer!");

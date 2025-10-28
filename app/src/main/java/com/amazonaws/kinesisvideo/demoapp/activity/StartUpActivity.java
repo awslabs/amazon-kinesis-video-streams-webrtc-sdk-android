@@ -8,6 +8,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
+import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.util.ActivityUtils;
 import com.amazonaws.mobile.client.AWSMobileClient;
@@ -31,7 +33,16 @@ public class StartUpActivity extends AppCompatActivity {
         supportFinishAfterTransition();
 
         AsyncTask.execute(() -> {
-            if (auth.isSignedIn()) {
+            // Check if custom credentials are available in .env
+            boolean hasEnvSetting = KinesisVideoWebRtcDemoApp.hasEnvCredentials();
+            
+            if (hasEnvSetting || auth.isSignedIn()) {
+                Log.i(TAG, hasEnvSetting ? "Using credentials from environmental seetting" : "User already signed in");
+                
+                if (hasEnvSetting) {
+                    showCredentialsWarning();
+                }
+                
                 ActivityUtils.startActivity(thisActivity, SimpleNavActivity.class);
             } else {
                 auth.showSignIn(thisActivity,
@@ -78,5 +89,9 @@ public class StartUpActivity extends AppCompatActivity {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+    
+    private void showCredentialsWarning() {
+        Log.w(TAG, "WARNING: Using environment settings - please follow standard AWS recommended practices for production (https://docs.aws.amazon.com/cognito/)");
     }
 }
