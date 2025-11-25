@@ -74,6 +74,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_ICE_SERVER_TTL = "iceServerTTL";
     public static final String KEY_ICE_SERVER_URI = "iceServerUri";
     public static final String KEY_CAMERA_FRONT_FACING = "cameraFrontFacing";
+    public static final String KEY_USE_DUAL_STACK_ENDPOINTS = "useDualStackEndpoints";
 
     public static final String KEY_SEND_VIDEO = "sendVideo";
     public static final String KEY_SEND_AUDIO = "sendAudio";
@@ -272,6 +273,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         extras.putString(KEY_CHANNEL_ARN, mChannelArn);
         extras.putString(KEY_STREAM_ARN, mStreamArn);
         extras.putBoolean(KEY_IS_MASTER, isMaster);
+        extras.putBoolean(KEY_USE_DUAL_STACK_ENDPOINTS, mUseDualStackEndpoints.isChecked());
 
         if (!mIceServerList.isEmpty()) {
             ArrayList<String> userNames = new ArrayList<>(mIceServerList.size());
@@ -498,6 +500,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             //         client is just used for getting ICE servers, not for actual signaling.
             // Step 6. Call GetIceServerConfig in order to obtain TURN ICE server info.
             //         Note: the STUN endpoint will be `stun:stun.kinesisvideo.${region}.amazonaws.com:443`
+            //         for legacy mode and `stun:stun.kinesisvideo.${region}.api.aws:443` for dual-stack mode.
             try {
                 final AWSKinesisVideoSignalingClient awsKinesisVideoSignalingClient = mFragment.get().getAwsKinesisVideoSignalingClient(region, dataEndpoint);
                 GetIceServerConfigResult getIceServerConfigResult = awsKinesisVideoSignalingClient.getIceServerConfig(

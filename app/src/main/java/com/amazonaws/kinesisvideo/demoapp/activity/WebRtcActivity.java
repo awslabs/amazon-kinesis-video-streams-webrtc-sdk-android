@@ -13,6 +13,7 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_STREAM_ARN;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_USE_DUAL_STACK_ENDPOINTS;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -157,6 +158,7 @@ public class WebRtcActivity extends AppCompatActivity {
     private String mClientId;
 
     private String webrtcEndpoint;
+    private boolean useDualStackEndpoints;
     private String mStreamArn;
 
     private String mWssEndpoint;
@@ -575,6 +577,7 @@ public class WebRtcActivity extends AppCompatActivity {
         mStreamArn = intent.getStringExtra(KEY_STREAM_ARN);
         mWssEndpoint = intent.getStringExtra(KEY_WSS_ENDPOINT);
         webrtcEndpoint = intent.getStringExtra(KEY_WEBRTC_ENDPOINT);
+        useDualStackEndpoints = intent.getBooleanExtra(KEY_USE_DUAL_STACK_ENDPOINTS, false);
 
         mClientId = intent.getStringExtra(KEY_CLIENT_ID);
         // If no client identifier is present, a random one will be created.
@@ -595,8 +598,16 @@ public class WebRtcActivity extends AppCompatActivity {
 
         //TODO: add ui to control TURN only option
 
+        String stunDomain = useDualStackEndpoints
+                ? "api.aws"
+                : "amazonaws.com";
+        String stunUrl = String.format(
+                "stun:stun.kinesisvideo.%s.%s:443",
+                mRegion,
+                stunDomain
+        );
         final IceServer stun = IceServer
-                .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
+                .builder(stunUrl)
                 .createIceServer();
 
         peerIceServers.add(stun);
