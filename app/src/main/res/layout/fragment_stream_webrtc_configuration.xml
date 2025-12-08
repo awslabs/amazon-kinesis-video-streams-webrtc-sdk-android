@@ -88,25 +88,18 @@
             android:layout_marginStart="20dp">
 
             <TextView
-                android:id="@+id/label_ipv4"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="IPv4"
-                android:textSize="16sp"
-                android:layout_marginEnd="8dp" />
-
-            <Switch
-                android:id="@+id/use_dual_stack_endpoints"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-
-            <TextView
                 android:id="@+id/label_dual_stack"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Dual-stack"
                 android:textSize="16sp"
-                android:layout_marginStart="4dp" />
+                android:layout_marginStart="0dp" />
+
+            <Switch
+                android:id="@+id/use_dual_stack_endpoints"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp" />
 
         </LinearLayout>
 
