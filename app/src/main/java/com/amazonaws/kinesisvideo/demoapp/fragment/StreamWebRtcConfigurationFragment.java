@@ -331,7 +331,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
             // Check for dual-stack checkbox.
             if (mUseDualStackEndpoints.isChecked()) {
-                awsKinesisVideoClient.setEndpoint(generateDualStackEndpoint(region));
+                awsKinesisVideoClient.setEndpoint(KvsClientFactory.generateDualStackEndpoint(region));
             }
         }
         return awsKinesisVideoClient;
