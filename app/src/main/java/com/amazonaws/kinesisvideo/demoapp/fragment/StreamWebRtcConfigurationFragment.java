@@ -315,28 +315,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         return extras;
     }
 
-    private AWSKinesisVideoClient getAwsKinesisVideoClient(final String region) {
-        final AWSKinesisVideoClient awsKinesisVideoClient = new AWSKinesisVideoClient(
-                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
-        awsKinesisVideoClient.setRegion(Region.getRegion(region));
-        awsKinesisVideoClient.setSignerRegionOverride(region);
-        awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
-        try {
-            String customEndpoint = BuildConfig.CONTROL_PLANE_URI;
-            if (customEndpoint != null && !customEndpoint.isEmpty() && !"null".equals(customEndpoint)) {
-                awsKinesisVideoClient.setEndpoint(customEndpoint);
-            }
-        } catch (Exception e) {
-            // CONTROL_PLANE_URI not defined in .env
-
-            // Check for dual-stack checkbox.
-            if (mUseDualStackEndpoints.isChecked()) {
-                awsKinesisVideoClient.setEndpoint(KvsClientFactory.generateDualStackEndpoint(region));
-            }
-        }
-        return awsKinesisVideoClient;
-    }
-
     private AWSKinesisVideoSignalingClient getAwsKinesisVideoSignalingClient(final String region, final String endpoint) {
         final AWSKinesisVideoSignalingClient client = new AWSKinesisVideoSignalingClient(
                 KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());

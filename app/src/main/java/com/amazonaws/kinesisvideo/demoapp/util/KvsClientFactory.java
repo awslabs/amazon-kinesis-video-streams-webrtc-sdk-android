@@ -14,7 +14,7 @@ public class KvsClientFactory {
     private static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT_CN = "kinesisvideo.%s.api.amazonwebservices.com.cn";
     private static final String KVS_SERVICE_NAME = "kinesisvideo";
 
-    public static String generateDualStackEndpoint(final String region) {
+    private static String generateDualStackEndpoint(final String region) {
         if (region == null || region.isEmpty()) {
             Log.w(TAG, "AWS region is null or empty, will use legacy control-plane endpoint.");
             return null;
