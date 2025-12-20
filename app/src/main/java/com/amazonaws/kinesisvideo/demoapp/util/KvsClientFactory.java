@@ -34,8 +34,20 @@ public class KvsClientFactory {
         awsKinesisVideoClient.setSignerRegionOverride(region);
         awsKinesisVideoClient.setServiceNameIntern(KVS_SERVICE_NAME);
 
-        if (useDualStack) {
-            awsKinesisVideoClient.setEndpoint(generateDualStackEndpoint(region));
+        boolean isCustomEndpointSet = false;
+        try {
+            String customEndpoint = BuildConfig.CONTROL_PLANE_URI;
+            if (customEndpoint != null && !customEndpoint.isEmpty() && !"null".equals(customEndpoint)) {
+                awsKinesisVideoClient.setEndpoint(customEndpoint);
+                isCustomEndpointSet = true;
+            }
+        } catch (Exception e) {
+        }
+
+        if (!isCustomEndpointSet) {
+            if (useDualStack) {
+                awsKinesisVideoClient.setEndpoint(generateDualStackEndpoint(region));
+            }
         }
 
         return awsKinesisVideoClient;
