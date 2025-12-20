@@ -14,6 +14,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.Switch;
 import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -49,6 +50,7 @@ import com.amazonaws.services.kinesisvideosignaling.AWSKinesisVideoSignalingClie
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequest;
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
 import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
+import com.amazonaws.kinesisvideo.demoapp.util.KvsClientFactory;
 
 
 import java.lang.ref.WeakReference;
@@ -72,6 +74,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_ICE_SERVER_TTL = "iceServerTTL";
     public static final String KEY_ICE_SERVER_URI = "iceServerUri";
     public static final String KEY_CAMERA_FRONT_FACING = "cameraFrontFacing";
+    public static final String KEY_USE_DUAL_STACK_ENDPOINTS = "useDualStackEndpoints";
 
     public static final String KEY_SEND_VIDEO = "sendVideo";
     public static final String KEY_SEND_AUDIO = "sendAudio";
@@ -86,11 +89,15 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             KEY_SEND_AUDIO,
     };
 
+    public static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT = "kinesisvideo.%s.api.aws";
+    public static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT_CN = "kinesisvideo.%s.api.amazonwebservices.com.cn";
+
 
     private EditText mChannelName;
     private EditText mClientId;
     private EditText mRegion;
     private Spinner mCameras;
+    private Switch mUseDualStackEndpoints;
     private CheckBox mIngestMedia;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
@@ -132,6 +139,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mChannelName = view.findViewById(R.id.channel_name);
         mClientId = view.findViewById(R.id.client_id);
         mRegion = view.findViewById(R.id.region);
+        mUseDualStackEndpoints = view.findViewById(R.id.use_dual_stack_endpoints);
         mIngestMedia = view.findViewById(R.id.ingest_media);
         setRegionFromCognito();
 
@@ -174,8 +182,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             mRegion.setText(region);
         }
     }
-
-
 
     private View.OnClickListener startMasterActivityWhenClicked() {
         return new View.OnClickListener() {
@@ -267,6 +273,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         extras.putString(KEY_CHANNEL_ARN, mChannelArn);
         extras.putString(KEY_STREAM_ARN, mStreamArn);
         extras.putBoolean(KEY_IS_MASTER, isMaster);
+        extras.putBoolean(KEY_USE_DUAL_STACK_ENDPOINTS, mUseDualStackEndpoints.isChecked());
 
         if (!mIceServerList.isEmpty()) {
             ArrayList<String> userNames = new ArrayList<>(mIceServerList.size());
@@ -306,24 +313,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         extras.putBoolean(KEY_CAMERA_FRONT_FACING, mCameras.getSelectedItem().equals("Front Camera"));
 
         return extras;
-    }
-
-    private AWSKinesisVideoClient getAwsKinesisVideoClient(final String region) {
-        final AWSKinesisVideoClient awsKinesisVideoClient = new AWSKinesisVideoClient(
-                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
-        awsKinesisVideoClient.setRegion(Region.getRegion(region));
-        awsKinesisVideoClient.setSignerRegionOverride(region);
-        awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
-        try {
-            String customEndpoint = BuildConfig.CONTROL_PLANE_URI;
-            if (customEndpoint != null && !customEndpoint.isEmpty() && !"null".equals(customEndpoint)) {
-                awsKinesisVideoClient.setEndpoint(customEndpoint);
-            }
-        } catch (Exception e) {
-            // CONTROL_PLANE_URI not defined in .env
-        }
-        
-        return awsKinesisVideoClient;
     }
 
     private AWSKinesisVideoSignalingClient getAwsKinesisVideoSignalingClient(final String region, final String endpoint) {
@@ -395,7 +384,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             // Step 1. Create Kinesis Video Client
             final AWSKinesisVideoClient awsKinesisVideoClient;
             try {
-                awsKinesisVideoClient = mFragment.get().getAwsKinesisVideoClient(region);
+                final boolean useDualStack = mFragment.get().mUseDualStackEndpoints.isChecked();
+                awsKinesisVideoClient = KvsClientFactory.getAwsKinesisVideoClient(region, useDualStack);
             } catch (Exception e) {
                 return "Create client failed with " + e.getLocalizedMessage();
             }
@@ -488,6 +478,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             //         client is just used for getting ICE servers, not for actual signaling.
             // Step 6. Call GetIceServerConfig in order to obtain TURN ICE server info.
             //         Note: the STUN endpoint will be `stun:stun.kinesisvideo.${region}.amazonaws.com:443`
+            //         for legacy mode and `stun:stun.kinesisvideo.${region}.api.aws:443` for dual-stack mode.
             try {
                 final AWSKinesisVideoSignalingClient awsKinesisVideoSignalingClient = mFragment.get().getAwsKinesisVideoSignalingClient(region, dataEndpoint);
                 GetIceServerConfigResult getIceServerConfigResult = awsKinesisVideoSignalingClient.getIceServerConfig(
