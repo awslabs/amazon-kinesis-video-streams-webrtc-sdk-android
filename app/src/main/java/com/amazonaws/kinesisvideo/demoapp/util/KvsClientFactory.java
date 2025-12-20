@@ -3,6 +3,7 @@ package com.amazonaws.kinesisvideo.demoapp.util;
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
 import com.amazonaws.regions.Region;
+import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
 
 import android.util.Log;
 
