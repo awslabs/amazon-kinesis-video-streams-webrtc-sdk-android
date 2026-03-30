@@ -14,6 +14,11 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_USE_DUAL_STACK_ENDPOINTS;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_FORCE_TURN;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CANDIDATE_HOST_MODE;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CANDIDATE_SRFLX_MODE;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CANDIDATE_RELAY_MODE;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CANDIDATE_PRFLX_MODE;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -169,6 +174,17 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private String webrtcEndpoint;
     private boolean useDualStackEndpoints;
+    private boolean forceTurn;
+
+    // Candidate filtering modes: 0=Send&Accept, 1=SendOnly, 2=AcceptOnly, 3=Disabled
+    private static final int MODE_SEND_AND_ACCEPT = 0;
+    private static final int MODE_SEND_ONLY = 1;
+    private static final int MODE_ACCEPT_ONLY = 2;
+    private static final int MODE_DISABLED = 3;
+    private int candidateHostMode;
+    private int candidateSrflxMode;
+    private int candidateRelayMode;
+    private int candidatePrflxMode;
     private String mStreamArn;
 
     private String mWssEndpoint;
@@ -459,7 +475,7 @@ public class WebRtcActivity extends AppCompatActivity {
             final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
             final PeerConnection peer = peerConnectionFoundMap.get(clientId);
             
-            if (peer != null) {
+            if (peer != null && shouldAcceptCandidate(iceCandidate)) {
                 final boolean addIce = peer.addIceCandidate(iceCandidate);
                 Log.d(TAG, "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
             }
@@ -470,7 +486,29 @@ public class WebRtcActivity extends AppCompatActivity {
         pendingIceCandidatesMap.remove(clientId);
     }
 
+    private int getCandidateMode(final String sdp) {
+        if (sdp.contains("typ host")) return candidateHostMode;
+        if (sdp.contains("typ srflx")) return candidateSrflxMode;
+        if (sdp.contains("typ relay")) return candidateRelayMode;
+        if (sdp.contains("typ prflx")) return candidatePrflxMode;
+        return MODE_SEND_AND_ACCEPT;
+    }
+
+    private boolean shouldSendCandidate(final IceCandidate iceCandidate) {
+        int mode = getCandidateMode(iceCandidate.sdp);
+        return mode == MODE_SEND_AND_ACCEPT || mode == MODE_SEND_ONLY;
+    }
+
+    private boolean shouldAcceptCandidate(final IceCandidate iceCandidate) {
+        int mode = getCandidateMode(iceCandidate.sdp);
+        return mode == MODE_SEND_AND_ACCEPT || mode == MODE_ACCEPT_ONLY;
+    }
+
     private void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
+        if (!shouldAcceptCandidate(iceCandidate)) {
+            Log.d(TAG, "Filtered incoming candidate (accept blocked): " + iceCandidate.sdp);
+            return;
+        }
         // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
         // Once the peer connection is found, add them directly instead of adding it to the queue.
         String senderClientId = message.getSenderClientId();
@@ -595,6 +633,11 @@ public class WebRtcActivity extends AppCompatActivity {
         mWssEndpoint = intent.getStringExtra(KEY_WSS_ENDPOINT);
         webrtcEndpoint = intent.getStringExtra(KEY_WEBRTC_ENDPOINT);
         useDualStackEndpoints = intent.getBooleanExtra(KEY_USE_DUAL_STACK_ENDPOINTS, false);
+        forceTurn = intent.getBooleanExtra(KEY_FORCE_TURN, false);
+        candidateHostMode = intent.getIntExtra(KEY_CANDIDATE_HOST_MODE, MODE_SEND_AND_ACCEPT);
+        candidateSrflxMode = intent.getIntExtra(KEY_CANDIDATE_SRFLX_MODE, MODE_SEND_AND_ACCEPT);
+        candidateRelayMode = intent.getIntExtra(KEY_CANDIDATE_RELAY_MODE, MODE_SEND_AND_ACCEPT);
+        candidatePrflxMode = intent.getIntExtra(KEY_CANDIDATE_PRFLX_MODE, MODE_SEND_AND_ACCEPT);
 
         mClientId = intent.getStringExtra(KEY_CLIENT_ID);
         // If no client identifier is present, a random one will be created.
@@ -786,6 +829,11 @@ public class WebRtcActivity extends AppCompatActivity {
         rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
         rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
 
+        if (forceTurn) {
+            rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.RELAY;
+            Log.i(TAG, "TURN-only mode enabled: iceTransportsType=RELAY");
+        }
+
         // Step 8. Create RTCPeerConnection.
         //         The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
         //         We also configure the Add Peer Connection Event Listeners here.
@@ -794,6 +842,10 @@ public class WebRtcActivity extends AppCompatActivity {
             @Override
             public void onIceCandidate(final IceCandidate iceCandidate) {
                 super.onIceCandidate(iceCandidate);
+                if (!shouldSendCandidate(iceCandidate)) {
+                    Log.d(TAG, "Filtered outgoing candidate (send blocked): " + iceCandidate.sdp);
+                    return;
+                }
                 final Message message = createIceCandidateMessage(iceCandidate);
                 Log.d(TAG, "Sending IceCandidate to remote peer " + iceCandidate);
                 client.sendIceCandidate(message);  /* Send to Peer */

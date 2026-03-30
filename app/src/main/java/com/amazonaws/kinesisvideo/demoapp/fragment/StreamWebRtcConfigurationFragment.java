@@ -76,9 +76,21 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_ICE_SERVER_URI = "iceServerUri";
     public static final String KEY_CAMERA_FRONT_FACING = "cameraFrontFacing";
     public static final String KEY_USE_DUAL_STACK_ENDPOINTS = "useDualStackEndpoints";
+    public static final String KEY_FORCE_TURN = "forceTurn";
+    public static final String KEY_CANDIDATE_HOST_MODE = "candidateHostMode";
+    public static final String KEY_CANDIDATE_SRFLX_MODE = "candidateSrflxMode";
+    public static final String KEY_CANDIDATE_RELAY_MODE = "candidateRelayMode";
+    public static final String KEY_CANDIDATE_PRFLX_MODE = "candidatePrflxMode";
 
     public static final String KEY_SEND_VIDEO = "sendVideo";
     public static final String KEY_SEND_AUDIO = "sendAudio";
+
+    private static final String[] CANDIDATE_MODES = {
+            "Send & Accept",
+            "Send Only",
+            "Accept Only",
+            "Disabled",
+    };
 
     private static final String[] WEBRTC_OPTIONS = {
             "Send Video",
@@ -99,6 +111,11 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private EditText mRegion;
     private Spinner mCameras;
     private Switch mUseDualStackEndpoints;
+    private Switch mForceTurn;
+    private Spinner mCandidateHost;
+    private Spinner mCandidateSrflx;
+    private Spinner mCandidateRelay;
+    private Spinner mCandidatePrflx;
     private CheckBox mIngestMedia;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
@@ -141,8 +158,38 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mClientId = view.findViewById(R.id.client_id);
         mRegion = view.findViewById(R.id.region);
         mUseDualStackEndpoints = view.findViewById(R.id.use_dual_stack_endpoints);
+        mForceTurn = view.findViewById(R.id.force_turn);
         mIngestMedia = view.findViewById(R.id.ingest_media);
         setRegionFromCognito();
+
+        final ArrayAdapter<String> candidateModeAdapter = new ArrayAdapter<>(
+                getActivity(), android.R.layout.simple_spinner_dropdown_item, CANDIDATE_MODES);
+        mCandidateHost = view.findViewById(R.id.candidate_host_spinner);
+        mCandidateHost.setAdapter(candidateModeAdapter);
+        mCandidateSrflx = view.findViewById(R.id.candidate_srflx_spinner);
+        mCandidateSrflx.setAdapter(candidateModeAdapter);
+        mCandidateRelay = view.findViewById(R.id.candidate_relay_spinner);
+        mCandidateRelay.setAdapter(candidateModeAdapter);
+        mCandidatePrflx = view.findViewById(R.id.candidate_prflx_spinner);
+        mCandidatePrflx.setAdapter(candidateModeAdapter);
+
+        mForceTurn.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                mCandidateHost.setSelection(3);   // Disabled
+                mCandidateSrflx.setSelection(3);  // Disabled
+                mCandidateRelay.setSelection(0);  // Send & Accept
+                mCandidatePrflx.setSelection(3);  // Disabled
+            } else {
+                mCandidateHost.setSelection(0);
+                mCandidateSrflx.setSelection(0);
+                mCandidateRelay.setSelection(0);
+                mCandidatePrflx.setSelection(0);
+            }
+            mCandidateHost.setEnabled(!isChecked);
+            mCandidateSrflx.setEnabled(!isChecked);
+            mCandidateRelay.setEnabled(!isChecked);
+            mCandidatePrflx.setEnabled(!isChecked);
+        });
 
         mOptions = view.findViewById(R.id.webrtc_options);
         mOptions.setAdapter(new ArrayAdapter<String>(getActivity(), android.R.layout.simple_list_item_multiple_choice, WEBRTC_OPTIONS) {
@@ -275,6 +322,11 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         extras.putString(KEY_STREAM_ARN, mStreamArn);
         extras.putBoolean(KEY_IS_MASTER, isMaster);
         extras.putBoolean(KEY_USE_DUAL_STACK_ENDPOINTS, mUseDualStackEndpoints.isChecked());
+        extras.putBoolean(KEY_FORCE_TURN, mForceTurn.isChecked());
+        extras.putInt(KEY_CANDIDATE_HOST_MODE, mCandidateHost.getSelectedItemPosition());
+        extras.putInt(KEY_CANDIDATE_SRFLX_MODE, mCandidateSrflx.getSelectedItemPosition());
+        extras.putInt(KEY_CANDIDATE_RELAY_MODE, mCandidateRelay.getSelectedItemPosition());
+        extras.putInt(KEY_CANDIDATE_PRFLX_MODE, mCandidatePrflx.getSelectedItemPosition());
 
         if (!mIceServerList.isEmpty()) {
             ArrayList<String> userNames = new ArrayList<>(mIceServerList.size());
