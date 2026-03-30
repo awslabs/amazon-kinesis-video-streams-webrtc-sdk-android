@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/amazon_root_ca1" />
+            <certificates src="@raw/amazon_root_ca2" />
+            <certificates src="@raw/amazon_root_ca3" />
+            <certificates src="@raw/amazon_root_ca4" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

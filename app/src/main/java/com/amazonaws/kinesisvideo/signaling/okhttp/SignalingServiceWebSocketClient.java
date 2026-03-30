@@ -7,13 +7,14 @@ import com.amazonaws.kinesisvideo.signaling.SignalingListener;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.google.gson.Gson;
 
+import android.content.Context;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Signaling service client based on websocket.
  */
-
 public class SignalingServiceWebSocketClient {
 
     private static final String TAG = "SignalingServiceWebSocketClient";
@@ -24,11 +25,18 @@ public class SignalingServiceWebSocketClient {
 
     private final Gson gson = new Gson();
 
-    public SignalingServiceWebSocketClient(final String uri, final SignalingListener signalingListener,
+    public SignalingServiceWebSocketClient(final Context context, final String uri,
+                                           final SignalingListener signalingListener,
                                            final ExecutorService executorService) {
-        Log.d(TAG, "Connecting to URI " + uri + " as master");
+        this(context, uri, signalingListener, executorService, false);
+    }
+
+    public SignalingServiceWebSocketClient(final Context context, final String uri,
+                                           final SignalingListener signalingListener,
+                                           final ExecutorService executorService, final boolean isGovCloud) {
+        Log.d(TAG, "Connecting to URI " + uri + (isGovCloud ? " (GovCloud/FIPS)" : ""));
         this.executorService = executorService;
-        websocketClient = new WebSocketClient(uri, signalingListener);
+        websocketClient = new WebSocketClient(context, uri, signalingListener, isGovCloud);
     }
 
     public boolean isOpen() {

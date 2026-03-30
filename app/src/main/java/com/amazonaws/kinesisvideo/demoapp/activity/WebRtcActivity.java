@@ -76,7 +76,9 @@ import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnection.IceServer;
+import org.webrtc.PeerConnectionDependencies;
 import org.webrtc.PeerConnectionFactory;
+import org.webrtc.SSLCertificateVerifier;
 import org.webrtc.RTCStats;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
@@ -89,9 +91,13 @@ import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -105,6 +111,10 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
@@ -277,7 +287,8 @@ public class WebRtcActivity extends AppCompatActivity {
         //          This is the actual client that is used to send messages over the signaling channel.
         //          SignalingServiceWebSocketClient will attempt to open the connection in its constructor.
         try {
-            client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
+            final boolean isGovCloud = Constants.isGovCloudRegion(mRegion);
+            client = new SignalingServiceWebSocketClient(getApplicationContext(), wsHost, signalingListener, Executors.newFixedThreadPool(10), isGovCloud);
 
             Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
         } catch (final Exception e) {
@@ -778,7 +789,7 @@ public class WebRtcActivity extends AppCompatActivity {
         // Step 8. Create RTCPeerConnection.
         //         The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
         //         We also configure the Add Peer Connection Event Listeners here.
-        localPeer = peerConnectionFactory.createPeerConnection(rtcConfig, new KinesisVideoPeerConnection() {
+        final KinesisVideoPeerConnection observer = new KinesisVideoPeerConnection() {
 
             @Override
             public void onIceCandidate(final IceCandidate iceCandidate) {
@@ -854,7 +865,12 @@ public class WebRtcActivity extends AppCompatActivity {
                     }
                 });
             }
-        });
+        };
+
+        final PeerConnectionDependencies dependencies = PeerConnectionDependencies.builder(observer)
+                .setSSLCertificateVerifier(buildSslCertificateVerifier())
+                .createPeerConnectionDependencies();
+        localPeer = peerConnectionFactory.createPeerConnection(rtcConfig, dependencies);
 
         if (localPeer != null) {
             printStatsExecutor.scheduleWithFixedDelay(() -> localPeer.getStats(rtcStatsReport -> {
@@ -1153,5 +1169,96 @@ public class WebRtcActivity extends AppCompatActivity {
         // or other notification behaviors after this
         final NotificationManager notificationManager = getSystemService(NotificationManager.class);
         notificationManager.createNotificationChannel(channel);
+    }
+
+    /**
+     * Builds an SSLCertificateVerifier that validates certificates against
+     * system CAs plus Amazon root CAs from res/raw/.
+     *
+     * libwebrtc calls verify(byte[]) once per certificate in the chain,
+     * starting with the leaf. We collect them and validate the full chain
+     * when we see a self-signed (root) certificate or a certificate present
+     * in our trust store.
+     */
+    private SSLCertificateVerifier buildSslCertificateVerifier() {
+        try {
+            final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            keyStore.load(null, null);
+
+            // Load system CAs
+            final TrustManagerFactory defaultTmf = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm());
+            defaultTmf.init((KeyStore) null);
+            for (final TrustManager tm : defaultTmf.getTrustManagers()) {
+                if (tm instanceof X509TrustManager) {
+                    for (final X509Certificate cert : ((X509TrustManager) tm).getAcceptedIssuers()) {
+                        keyStore.setCertificateEntry(cert.getSubjectX500Principal().getName(), cert);
+                    }
+                }
+            }
+
+            // Load Amazon root CAs from res/raw
+            final CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            final String[] caNames = {"amazon_root_ca1", "amazon_root_ca2", "amazon_root_ca3", "amazon_root_ca4"};
+            for (final String name : caNames) {
+                final int resId = getResources().getIdentifier(name, "raw", getPackageName());
+                if (resId != 0) {
+                    try (InputStream is = getResources().openRawResource(resId)) {
+                        keyStore.setCertificateEntry(name, cf.generateCertificate(is));
+                    }
+                }
+            }
+
+            final TrustManagerFactory tmf = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(keyStore);
+
+            X509TrustManager x509Tm = null;
+            for (final TrustManager tm : tmf.getTrustManagers()) {
+                if (tm instanceof X509TrustManager) {
+                    x509Tm = (X509TrustManager) tm;
+                    break;
+                }
+            }
+
+            final X509TrustManager finalTm = x509Tm;
+            final List<X509Certificate> chainCollector = new ArrayList<>();
+
+            return derCert -> {
+                if (finalTm == null) return false;
+                try {
+                    final X509Certificate cert = (X509Certificate) CertificateFactory
+                            .getInstance("X.509")
+                            .generateCertificate(new java.io.ByteArrayInputStream(derCert));
+
+                    Log.d(TAG, "SSLCertificateVerifier: subject=" + cert.getSubjectX500Principal()
+                            + " issuer=" + cert.getIssuerX500Principal());
+
+                    chainCollector.add(cert);
+
+                    boolean isSelfSigned = cert.getSubjectX500Principal().equals(cert.getIssuerX500Principal());
+                    boolean isTrustAnchor = false;
+                    try {
+                        String alias = keyStore.getCertificateAlias(cert);
+                        isTrustAnchor = alias != null;
+                    } catch (Exception ignored) {}
+
+                    if (isSelfSigned || isTrustAnchor) {
+                        final X509Certificate[] chain = chainCollector.toArray(new X509Certificate[0]);
+                        chainCollector.clear();
+                        finalTm.checkServerTrusted(chain, "RSA");
+                        Log.d(TAG, "SSLCertificateVerifier: chain validated successfully (" + chain.length + " certs)");
+                    }
+                    return true;
+                } catch (Exception e) {
+                    chainCollector.clear();
+                    Log.w(TAG, "TURN TLS certificate verification failed", e);
+                    return false;
+                }
+            };
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build SSLCertificateVerifier, TURN TLS will fail", e);
+            return derCert -> false;
+        }
     }
 }
