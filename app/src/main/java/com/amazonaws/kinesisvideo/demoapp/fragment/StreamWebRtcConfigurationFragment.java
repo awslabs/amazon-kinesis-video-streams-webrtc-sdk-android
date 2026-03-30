@@ -51,6 +51,7 @@ import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequ
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
 import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
 import com.amazonaws.kinesisvideo.demoapp.util.KvsClientFactory;
+import com.amazonaws.kinesisvideo.utils.Constants;
 
 
 import java.lang.ref.WeakReference;
@@ -321,7 +322,13 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         client.setRegion(Region.getRegion(region));
         client.setSignerRegionOverride(region);
         client.setServiceNameIntern("kinesisvideo");
-        client.setEndpoint(endpoint);
+        if (Constants.isGovCloudRegion(region) && endpoint != null && !endpoint.contains("-fips")) {
+            final String fipsEndpoint = endpoint.replace("kinesisvideo.", "kinesisvideo-fips.");
+            Log.i(TAG, "GovCloud: Using FIPS signaling endpoint: " + fipsEndpoint);
+            client.setEndpoint(fipsEndpoint);
+        } else if (endpoint != null) {
+            client.setEndpoint(endpoint);
+        }
         return client;
     }
 

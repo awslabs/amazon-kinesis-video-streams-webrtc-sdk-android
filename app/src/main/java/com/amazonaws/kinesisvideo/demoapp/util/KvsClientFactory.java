@@ -1,6 +1,7 @@
 package com.amazonaws.kinesisvideo.demoapp.util;
 
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
+import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
 import com.amazonaws.regions.Region;
 import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
@@ -27,7 +28,11 @@ public class KvsClientFactory {
 
         return String.format(DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT, region);
     }
-    
+
+    private static String generateFipsEndpoint(final String region) {
+        return String.format(Constants.FIPS_CONTROL_PLANE_ENDPOINT_FORMAT, region);
+    }
+
     public static AWSKinesisVideoClient getAwsKinesisVideoClient(final String region, final boolean useDualStack) {
         final AWSKinesisVideoClient awsKinesisVideoClient = new AWSKinesisVideoClient(
                 KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
@@ -46,7 +51,10 @@ public class KvsClientFactory {
         }
 
         if (!isCustomEndpointSet) {
-            if (useDualStack) {
+            if (Constants.isGovCloudRegion(region)) {
+                Log.i(TAG, "GovCloud region detected, using FIPS endpoint: " + generateFipsEndpoint(region));
+                awsKinesisVideoClient.setEndpoint(generateFipsEndpoint(region));
+            } else if (useDualStack) {
                 awsKinesisVideoClient.setEndpoint(generateDualStackEndpoint(region));
             }
         }

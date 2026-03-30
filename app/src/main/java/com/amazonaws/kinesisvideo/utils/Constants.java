@@ -21,4 +21,11 @@ public class Constants {
      * Query parameter for Client Id. Only used for viewers. Used for calling Kinesis Video Websocket APIs.
      */
     public static final String CLIENT_ID_QUERY_PARAM = "X-Amz-ClientId";
+
+    /** FIPS control-plane endpoint format for GovCloud (e.g. kinesisvideo-fips.us-gov-west-1.amazonaws.com) */
+    public static final String FIPS_CONTROL_PLANE_ENDPOINT_FORMAT = "kinesisvideo-fips.%s.amazonaws.com";
+
+    public static boolean isGovCloudRegion(final String region) {
+        return region != null && region.startsWith("us-gov-");
+    }
 }

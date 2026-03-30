@@ -341,7 +341,13 @@ public class WebRtcActivity extends AppCompatActivity {
         storageClient.setRegion(Region.getRegion(mRegion));
         storageClient.setSignerRegionOverride(mRegion);
         storageClient.setServiceNameIntern("kinesisvideo");
-        storageClient.setEndpoint(webrtcEndpoint);
+        if (Constants.isGovCloudRegion(mRegion) && webrtcEndpoint != null && !webrtcEndpoint.contains("-fips")) {
+            final String fipsEndpoint = webrtcEndpoint.replace("kinesisvideo.", "kinesisvideo-fips.");
+            Log.i(TAG, "GovCloud: Using FIPS storage endpoint: " + fipsEndpoint);
+            storageClient.setEndpoint(fipsEndpoint);
+        } else if (webrtcEndpoint != null) {
+            storageClient.setEndpoint(webrtcEndpoint);
+        }
     }
 
     private void joinStorageSession(AWSKinesisVideoWebRTCStorageClient storageClient) {
@@ -601,8 +607,13 @@ public class WebRtcActivity extends AppCompatActivity {
         String stunDomain = useDualStackEndpoints
                 ? "api.aws"
                 : "amazonaws.com";
+        final boolean isGovCloud = Constants.isGovCloudRegion(mRegion);
+        final String stunProtocol = isGovCloud ? "stuns" : "stun";
+        final String stunService = isGovCloud ? "kinesisvideo-fips" : "kinesisvideo";
         String stunUrl = String.format(
-                "stun:stun.kinesisvideo.%s.%s:443",
+                "%s:stun.%s.%s.%s:443",
+                stunProtocol,
+                stunService,
                 mRegion,
                 stunDomain
         );
