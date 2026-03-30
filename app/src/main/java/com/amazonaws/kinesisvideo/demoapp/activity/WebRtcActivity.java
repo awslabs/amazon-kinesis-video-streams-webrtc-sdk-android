@@ -658,12 +658,10 @@ public class WebRtcActivity extends AppCompatActivity {
 
         //TODO: add ui to control TURN only option
 
-        String stunDomain = useDualStackEndpoints
-                ? "api.aws"
-                : "amazonaws.com";
         final boolean isGovCloud = Constants.isGovCloudRegion(mRegion);
         final String stunProtocol = isGovCloud ? "stuns" : "stun";
         final String stunService = isGovCloud ? "kinesisvideo-fips" : "kinesisvideo";
+        final String stunDomain = useDualStackEndpoints ? "api.aws" : "amazonaws.com";
         String stunUrl = String.format(
                 "%s:stun.%s.%s.%s:443",
                 stunProtocol,

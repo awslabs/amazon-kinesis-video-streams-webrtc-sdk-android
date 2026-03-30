@@ -14,6 +14,7 @@ public class KvsClientFactory {
 
     private static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT = "kinesisvideo.%s.api.aws";
     private static final String DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT_CN = "kinesisvideo.%s.api.amazonwebservices.com.cn";
+    private static final String FIPS_DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT = "kinesisvideo-fips.%s.api.aws";
     private static final String KVS_SERVICE_NAME = "kinesisvideo";
 
     private static String generateDualStackEndpoint(final String region) {
@@ -51,7 +52,11 @@ public class KvsClientFactory {
         }
 
         if (!isCustomEndpointSet) {
-            if (Constants.isGovCloudRegion(region)) {
+            if (Constants.isGovCloudRegion(region) && useDualStack) {
+                final String endpoint = String.format(FIPS_DUAL_STACK_CONTROL_PLANE_ENDPOINT_FORMAT, region);
+                Log.i(TAG, "GovCloud region detected with dual-stack, using FIPS dual-stack endpoint: " + endpoint);
+                awsKinesisVideoClient.setEndpoint(endpoint);
+            } else if (Constants.isGovCloudRegion(region)) {
                 Log.i(TAG, "GovCloud region detected, using FIPS endpoint: " + generateFipsEndpoint(region));
                 awsKinesisVideoClient.setEndpoint(generateFipsEndpoint(region));
             } else if (useDualStack) {
