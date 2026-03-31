@@ -55,9 +55,10 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceGatheringChange(final PeerConnection.IceGatheringState iceGatheringState) {
-
-        Log.d(TAG, "onIceGatheringChange(): iceGatheringState = [" + iceGatheringState + "]");
-
+        Log.i(TAG, "ICE gathering state: " + iceGatheringState);
+        if (iceGatheringState == PeerConnection.IceGatheringState.COMPLETE) {
+            Log.i(TAG, "ICE gathering complete — if no srflx candidates were logged, STUN binding failed");
+        }
     }
 
     /**
@@ -65,9 +66,23 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceCandidate(final IceCandidate iceCandidate) {
+        final String sdp = iceCandidate.sdp;
+        final String mid = iceCandidate.sdpMid;
 
-        Log.d(TAG, "onIceCandidate(): iceCandidate = [" + iceCandidate + "]");
+        String type = "unknown";
+        if (sdp.contains("typ host")) type = "host";
+        else if (sdp.contains("typ srflx")) type = "srflx (STUN binding success)";
+        else if (sdp.contains("typ relay")) type = "relay (TURN)";
+        else if (sdp.contains("typ prflx")) type = "prflx";
 
+        String protocol = "unknown";
+        if (sdp.contains(" udp ") || sdp.contains(" UDP ")) protocol = "UDP";
+        else if (sdp.contains(" tcp ") || sdp.contains(" TCP ")) protocol = "TCP";
+
+        Log.i(TAG, "ICE candidate gathered: mid=" + mid
+                + " type=" + type
+                + " protocol=" + protocol
+                + " sdp=[" + sdp + "]");
     }
 
     /**
@@ -85,16 +100,25 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onSelectedCandidatePairChanged(final CandidatePairChangeEvent event) {
+        Log.i(TAG, "ICE candidate pair selected:"
+                + " local=[" + event.local.sdp + "]"
+                + " remote=[" + event.remote.sdp + "]"
+                + " reason=" + event.reason);
 
-        final String eventString = "{" +
-                String.join(", ",
-                        "reason: " + event.reason,
-                        "remote: " + event.remote,
-                        "local: " + event.local,
-                        "lastReceivedMs: " + event.lastDataReceivedMs) +
-                "}";
-        Log.d(TAG, "onSelectedCandidatePairChanged(): event = " + eventString);
+        final String localSdp = event.local.sdp;
+        if (localSdp.contains(" udp ") || localSdp.contains(" UDP ")) {
+            Log.i(TAG, "Selected transport: UDP (DTLS-SRTP for encryption)");
+        } else if (localSdp.contains(" tcp ") || localSdp.contains(" TCP ")) {
+            Log.i(TAG, "Selected transport: TCP (TLS for encryption)");
+        }
 
+        if (localSdp.contains("typ relay")) {
+            Log.i(TAG, "Candidate type: TURN relay");
+        } else if (localSdp.contains("typ srflx")) {
+            Log.i(TAG, "Candidate type: server-reflexive (STUN)");
+        } else if (localSdp.contains("typ host")) {
+            Log.i(TAG, "Candidate type: host");
+        }
     }
 
     /**
