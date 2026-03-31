@@ -242,7 +242,16 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
     private void startMasterActivity() {
         final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
-        
+
+        if (Constants.isGovCloudRegion(mRegion.getText().toString()) && mIngestMedia.isChecked()) {
+            new AlertDialog.Builder(getActivity())
+                    .setPositiveButton("OK", null)
+                    .setMessage("Media ingestion is not supported in GovCloud regions.")
+                    .create()
+                    .show();
+            return;
+        }
+
         if (mIngestMedia.isChecked()) {
             // Check that both "Send Audio" and "Send Video" boxes are enabled for ingest media
             for (int i = 0; i < mOptions.getCount(); i++) {
@@ -283,8 +292,17 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private void startViewerActivity() {
         Log.i(TAG, "Start Viewer button clicked - beginning viewer activity setup");
         final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
-        
-//        Check if Ingest Media is checked with Send Video
+
+        if (Constants.isGovCloudRegion(mRegion.getText().toString()) && mIngestMedia.isChecked()) {
+            new AlertDialog.Builder(getActivity())
+                    .setPositiveButton("OK", null)
+                    .setMessage("Media ingestion is not supported in GovCloud regions.")
+                    .create()
+                    .show();
+            return;
+        }
+
+        // Check if Ingest Media is checked with Send Video
         if (mIngestMedia.isChecked() && checked.get(0)) {
             new AlertDialog.Builder(getActivity())
                     .setPositiveButton("OK", null)

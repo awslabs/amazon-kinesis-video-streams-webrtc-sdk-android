@@ -655,6 +655,15 @@ public class WebRtcActivity extends AppCompatActivity {
 
         rootEglBase = EglBase.create();
 
+        // Block GovCloud + storage/media ingestion (not supported)
+        if (Constants.isGovCloudRegion(mRegion) && isStorageSession()) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Not Supported")
+                    .setMessage("Media ingestion and storage sessions are not supported in GovCloud regions.")
+                    .setPositiveButton("OK", (dialog, which) -> finish())
+                    .show();
+            return;
+        }
 
         //TODO: add ui to control TURN only option
 
