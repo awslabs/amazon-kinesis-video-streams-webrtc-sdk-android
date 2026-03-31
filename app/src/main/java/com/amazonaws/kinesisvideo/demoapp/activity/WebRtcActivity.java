@@ -691,6 +691,12 @@ public class WebRtcActivity extends AppCompatActivity {
                     final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
                             .setUsername(mUserNames.get(i))
                             .setPassword(mPasswords.get(i))
+                            // Disable libwebrtc's built-in hostname verification for TURN TLS.
+                            // Certificate chain trust is validated by buildSslCertificateVerifier()
+                            // via PeerConnectionDependencies.setSSLCertificateVerifier().
+                            // libwebrtc's OpenSSLAdapter post-connection check incorrectly rejects
+                            // valid TURN hostnames containing underscores in IP-encoded subdomains.
+                            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
                             .createIceServer();
                     Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
                     peerIceServers.add(iceServer);
@@ -1293,6 +1299,19 @@ public class WebRtcActivity extends AppCompatActivity {
                     Log.d(TAG, "SSLCertificateVerifier: subject=" + cert.getSubjectX500Principal()
                             + " issuer=" + cert.getIssuerX500Principal());
 
+                    // Hostname verification for leaf certificate (first cert in chain).
+                    // Validates that the cert's SANs contain a KVS TURN domain pattern,
+                    // covering both commercial (kinesisvideo.{region}) and GovCloud FIPS
+                    // (kinesisvideo-fips.{region}) endpoints with amazonaws.com or api.aws.
+                    // This replaces libwebrtc's built-in hostname check which is disabled
+                    // via TLS_CERT_POLICY_INSECURE_NO_CHECK due to underscore rejection.
+                    if (chainCollector.isEmpty()) {
+                        if (!verifyKvsTurnHostname(cert)) {
+                            Log.w(TAG, "SSLCertificateVerifier: leaf cert failed KVS TURN hostname verification");
+                            return false;
+                        }
+                    }
+
                     chainCollector.add(cert);
 
                     boolean isSelfSigned = cert.getSubjectX500Principal().equals(cert.getIssuerX500Principal());
@@ -1319,5 +1338,35 @@ public class WebRtcActivity extends AppCompatActivity {
             Log.e(TAG, "Failed to build SSLCertificateVerifier, TURN TLS will fail", e);
             return derCert -> false;
         }
+    }
+
+    /**
+     * Verifies that a leaf certificate belongs to a KVS TURN server by checking
+     * its SANs for a matching domain pattern. Supports both commercial and
+     * GovCloud FIPS endpoints across legacy and dual-stack domains.
+     *
+     * Expected SAN patterns:
+     *   *.t-{id}.kinesisvideo.{region}.amazonaws.com      (commercial)
+     *   *.t-{id}.kinesisvideo.{region}.api.aws            (commercial dual-stack)
+     *   *.t-{id}.kinesisvideo-fips.{region}.amazonaws.com (GovCloud FIPS)
+     *   *.t-{id}.kinesisvideo-fips.{region}.api.aws       (GovCloud FIPS dual-stack)
+     */
+    private boolean verifyKvsTurnHostname(final X509Certificate cert) {
+        try {
+            if (cert.getSubjectAlternativeNames() == null) return false;
+            for (final List<?> san : cert.getSubjectAlternativeNames()) {
+                if (san.size() >= 2 && Integer.valueOf(2).equals(san.get(0))) {
+                    final String dnsName = san.get(1).toString().toLowerCase();
+                    if (dnsName.contains(".kinesisvideo") &&
+                            (dnsName.endsWith(".amazonaws.com") || dnsName.endsWith(".api.aws"))) {
+                        Log.d(TAG, "SSLCertificateVerifier: hostname verified via SAN: " + dnsName);
+                        return true;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "SSLCertificateVerifier: error reading SANs", e);
+        }
+        return false;
     }
 }
