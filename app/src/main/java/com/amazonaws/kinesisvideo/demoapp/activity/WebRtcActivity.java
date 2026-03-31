@@ -14,6 +14,11 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_USE_DUAL_STACK_ENDPOINTS;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_FORCE_TURN;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CANDIDATE_HOST_MODE;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CANDIDATE_SRFLX_MODE;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CANDIDATE_RELAY_MODE;
+import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CANDIDATE_PRFLX_MODE;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -76,7 +81,9 @@ import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnection.IceServer;
+import org.webrtc.PeerConnectionDependencies;
 import org.webrtc.PeerConnectionFactory;
+import org.webrtc.SSLCertificateVerifier;
 import org.webrtc.RTCStats;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
@@ -89,9 +96,13 @@ import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -105,6 +116,10 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
@@ -159,6 +174,17 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private String webrtcEndpoint;
     private boolean useDualStackEndpoints;
+    private boolean forceTurn;
+
+    // Candidate filtering modes: 0=Send&Accept, 1=SendOnly, 2=AcceptOnly, 3=Disabled
+    private static final int MODE_SEND_AND_ACCEPT = 0;
+    private static final int MODE_SEND_ONLY = 1;
+    private static final int MODE_ACCEPT_ONLY = 2;
+    private static final int MODE_DISABLED = 3;
+    private int candidateHostMode;
+    private int candidateSrflxMode;
+    private int candidateRelayMode;
+    private int candidatePrflxMode;
     private String mStreamArn;
 
     private String mWssEndpoint;
@@ -277,7 +303,8 @@ public class WebRtcActivity extends AppCompatActivity {
         //          This is the actual client that is used to send messages over the signaling channel.
         //          SignalingServiceWebSocketClient will attempt to open the connection in its constructor.
         try {
-            client = new SignalingServiceWebSocketClient(wsHost, signalingListener, Executors.newFixedThreadPool(10));
+            final boolean isGovCloud = Constants.isGovCloudRegion(mRegion);
+            client = new SignalingServiceWebSocketClient(getApplicationContext(), wsHost, signalingListener, Executors.newFixedThreadPool(10), isGovCloud);
 
             Log.d(TAG, "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
         } catch (final Exception e) {
@@ -341,7 +368,13 @@ public class WebRtcActivity extends AppCompatActivity {
         storageClient.setRegion(Region.getRegion(mRegion));
         storageClient.setSignerRegionOverride(mRegion);
         storageClient.setServiceNameIntern("kinesisvideo");
-        storageClient.setEndpoint(webrtcEndpoint);
+        if (Constants.isGovCloudRegion(mRegion) && webrtcEndpoint != null && !webrtcEndpoint.contains("-fips")) {
+            final String fipsEndpoint = webrtcEndpoint.replace("kinesisvideo.", "kinesisvideo-fips.");
+            Log.i(TAG, "GovCloud: Using FIPS storage endpoint: " + fipsEndpoint);
+            storageClient.setEndpoint(fipsEndpoint);
+        } else if (webrtcEndpoint != null) {
+            storageClient.setEndpoint(webrtcEndpoint);
+        }
     }
 
     private void joinStorageSession(AWSKinesisVideoWebRTCStorageClient storageClient) {
@@ -442,7 +475,7 @@ public class WebRtcActivity extends AppCompatActivity {
             final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
             final PeerConnection peer = peerConnectionFoundMap.get(clientId);
             
-            if (peer != null) {
+            if (peer != null && shouldAcceptCandidate(iceCandidate)) {
                 final boolean addIce = peer.addIceCandidate(iceCandidate);
                 Log.d(TAG, "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
             }
@@ -453,7 +486,29 @@ public class WebRtcActivity extends AppCompatActivity {
         pendingIceCandidatesMap.remove(clientId);
     }
 
+    private int getCandidateMode(final String sdp) {
+        if (sdp.contains("typ host")) return candidateHostMode;
+        if (sdp.contains("typ srflx")) return candidateSrflxMode;
+        if (sdp.contains("typ relay")) return candidateRelayMode;
+        if (sdp.contains("typ prflx")) return candidatePrflxMode;
+        return MODE_SEND_AND_ACCEPT;
+    }
+
+    private boolean shouldSendCandidate(final IceCandidate iceCandidate) {
+        int mode = getCandidateMode(iceCandidate.sdp);
+        return mode == MODE_SEND_AND_ACCEPT || mode == MODE_SEND_ONLY;
+    }
+
+    private boolean shouldAcceptCandidate(final IceCandidate iceCandidate) {
+        int mode = getCandidateMode(iceCandidate.sdp);
+        return mode == MODE_SEND_AND_ACCEPT || mode == MODE_ACCEPT_ONLY;
+    }
+
     private void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
+        if (!shouldAcceptCandidate(iceCandidate)) {
+            Log.d(TAG, "Filtered incoming candidate (accept blocked): " + iceCandidate.sdp);
+            return;
+        }
         // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
         // Once the peer connection is found, add them directly instead of adding it to the queue.
         String senderClientId = message.getSenderClientId();
@@ -578,6 +633,11 @@ public class WebRtcActivity extends AppCompatActivity {
         mWssEndpoint = intent.getStringExtra(KEY_WSS_ENDPOINT);
         webrtcEndpoint = intent.getStringExtra(KEY_WEBRTC_ENDPOINT);
         useDualStackEndpoints = intent.getBooleanExtra(KEY_USE_DUAL_STACK_ENDPOINTS, false);
+        forceTurn = intent.getBooleanExtra(KEY_FORCE_TURN, false);
+        candidateHostMode = intent.getIntExtra(KEY_CANDIDATE_HOST_MODE, MODE_SEND_AND_ACCEPT);
+        candidateSrflxMode = intent.getIntExtra(KEY_CANDIDATE_SRFLX_MODE, MODE_SEND_AND_ACCEPT);
+        candidateRelayMode = intent.getIntExtra(KEY_CANDIDATE_RELAY_MODE, MODE_SEND_AND_ACCEPT);
+        candidatePrflxMode = intent.getIntExtra(KEY_CANDIDATE_PRFLX_MODE, MODE_SEND_AND_ACCEPT);
 
         mClientId = intent.getStringExtra(KEY_CLIENT_ID);
         // If no client identifier is present, a random one will be created.
@@ -595,14 +655,26 @@ public class WebRtcActivity extends AppCompatActivity {
 
         rootEglBase = EglBase.create();
 
+        // Block GovCloud + storage/media ingestion (not supported)
+        if (Constants.isGovCloudRegion(mRegion) && isStorageSession()) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Not Supported")
+                    .setMessage("Media ingestion and storage sessions are not supported in GovCloud regions.")
+                    .setPositiveButton("OK", (dialog, which) -> finish())
+                    .show();
+            return;
+        }
 
         //TODO: add ui to control TURN only option
 
-        String stunDomain = useDualStackEndpoints
-                ? "api.aws"
-                : "amazonaws.com";
+        final boolean isGovCloud = Constants.isGovCloudRegion(mRegion);
+        final String stunProtocol = isGovCloud ? "stuns" : "stun";
+        final String stunService = isGovCloud ? "kinesisvideo-fips" : "kinesisvideo";
+        final String stunDomain = useDualStackEndpoints ? "api.aws" : "amazonaws.com";
         String stunUrl = String.format(
-                "stun:stun.kinesisvideo.%s.%s:443",
+                "%s:stun.%s.%s.%s:443",
+                stunProtocol,
+                stunService,
                 mRegion,
                 stunDomain
         );
@@ -619,6 +691,12 @@ public class WebRtcActivity extends AppCompatActivity {
                     final IceServer iceServer = IceServer.builder(turnServer.replace("[", "").replace("]", ""))
                             .setUsername(mUserNames.get(i))
                             .setPassword(mPasswords.get(i))
+                            // Disable libwebrtc's built-in hostname verification for TURN TLS.
+                            // Certificate chain trust is validated by buildSslCertificateVerifier()
+                            // via PeerConnectionDependencies.setSSLCertificateVerifier().
+                            // libwebrtc's OpenSSLAdapter post-connection check incorrectly rejects
+                            // valid TURN hostnames containing underscores in IP-encoded subdomains.
+                            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
                             .createIceServer();
                     Log.d(TAG, "IceServer details (TURN) = " + iceServer.toString());
                     peerIceServers.add(iceServer);
@@ -764,14 +842,23 @@ public class WebRtcActivity extends AppCompatActivity {
         rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
         rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
 
+        if (forceTurn) {
+            rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.RELAY;
+            Log.i(TAG, "TURN-only mode enabled: iceTransportsType=RELAY");
+        }
+
         // Step 8. Create RTCPeerConnection.
         //         The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
         //         We also configure the Add Peer Connection Event Listeners here.
-        localPeer = peerConnectionFactory.createPeerConnection(rtcConfig, new KinesisVideoPeerConnection() {
+        final KinesisVideoPeerConnection observer = new KinesisVideoPeerConnection() {
 
             @Override
             public void onIceCandidate(final IceCandidate iceCandidate) {
                 super.onIceCandidate(iceCandidate);
+                if (!shouldSendCandidate(iceCandidate)) {
+                    Log.d(TAG, "Filtered outgoing candidate (send blocked): " + iceCandidate.sdp);
+                    return;
+                }
                 final Message message = createIceCandidateMessage(iceCandidate);
                 Log.d(TAG, "Sending IceCandidate to remote peer " + iceCandidate);
                 client.sendIceCandidate(message);  /* Send to Peer */
@@ -843,7 +930,12 @@ public class WebRtcActivity extends AppCompatActivity {
                     }
                 });
             }
-        });
+        };
+
+        final PeerConnectionDependencies dependencies = PeerConnectionDependencies.builder(observer)
+                .setSSLCertificateVerifier(buildSslCertificateVerifier())
+                .createPeerConnectionDependencies();
+        localPeer = peerConnectionFactory.createPeerConnection(rtcConfig, dependencies);
 
         if (localPeer != null) {
             printStatsExecutor.scheduleWithFixedDelay(() -> localPeer.getStats(rtcStatsReport -> {
@@ -1142,5 +1234,139 @@ public class WebRtcActivity extends AppCompatActivity {
         // or other notification behaviors after this
         final NotificationManager notificationManager = getSystemService(NotificationManager.class);
         notificationManager.createNotificationChannel(channel);
+    }
+
+    /**
+     * Builds an SSLCertificateVerifier that validates certificates against
+     * system CAs plus Amazon root CAs from res/raw/.
+     *
+     * libwebrtc calls verify(byte[]) once per certificate in the chain,
+     * starting with the leaf. We collect them and validate the full chain
+     * when we see a self-signed (root) certificate or a certificate present
+     * in our trust store.
+     */
+    private SSLCertificateVerifier buildSslCertificateVerifier() {
+        try {
+            final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            keyStore.load(null, null);
+
+            // Load system CAs
+            final TrustManagerFactory defaultTmf = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm());
+            defaultTmf.init((KeyStore) null);
+            for (final TrustManager tm : defaultTmf.getTrustManagers()) {
+                if (tm instanceof X509TrustManager) {
+                    for (final X509Certificate cert : ((X509TrustManager) tm).getAcceptedIssuers()) {
+                        keyStore.setCertificateEntry(cert.getSubjectX500Principal().getName(), cert);
+                    }
+                }
+            }
+
+            // Load Amazon root CAs from res/raw
+            final CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            final String[] caNames = {"amazon_root_ca1", "amazon_root_ca2", "amazon_root_ca3", "amazon_root_ca4"};
+            for (final String name : caNames) {
+                final int resId = getResources().getIdentifier(name, "raw", getPackageName());
+                if (resId != 0) {
+                    try (InputStream is = getResources().openRawResource(resId)) {
+                        keyStore.setCertificateEntry(name, cf.generateCertificate(is));
+                    }
+                }
+            }
+
+            final TrustManagerFactory tmf = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(keyStore);
+
+            X509TrustManager x509Tm = null;
+            for (final TrustManager tm : tmf.getTrustManagers()) {
+                if (tm instanceof X509TrustManager) {
+                    x509Tm = (X509TrustManager) tm;
+                    break;
+                }
+            }
+
+            final X509TrustManager finalTm = x509Tm;
+            final List<X509Certificate> chainCollector = new ArrayList<>();
+
+            return derCert -> {
+                if (finalTm == null) return false;
+                try {
+                    final X509Certificate cert = (X509Certificate) CertificateFactory
+                            .getInstance("X.509")
+                            .generateCertificate(new java.io.ByteArrayInputStream(derCert));
+
+                    Log.d(TAG, "SSLCertificateVerifier: subject=" + cert.getSubjectX500Principal()
+                            + " issuer=" + cert.getIssuerX500Principal());
+
+                    // Hostname verification for leaf certificate (first cert in chain).
+                    // Validates that the cert's SANs contain a KVS TURN domain pattern,
+                    // covering both commercial (kinesisvideo.{region}) and GovCloud FIPS
+                    // (kinesisvideo-fips.{region}) endpoints with amazonaws.com or api.aws.
+                    // This replaces libwebrtc's built-in hostname check which is disabled
+                    // via TLS_CERT_POLICY_INSECURE_NO_CHECK due to underscore rejection.
+                    if (chainCollector.isEmpty()) {
+                        if (!verifyKvsTurnHostname(cert)) {
+                            Log.w(TAG, "SSLCertificateVerifier: leaf cert failed KVS TURN hostname verification");
+                            return false;
+                        }
+                    }
+
+                    chainCollector.add(cert);
+
+                    boolean isSelfSigned = cert.getSubjectX500Principal().equals(cert.getIssuerX500Principal());
+                    boolean isTrustAnchor = false;
+                    try {
+                        String alias = keyStore.getCertificateAlias(cert);
+                        isTrustAnchor = alias != null;
+                    } catch (Exception ignored) {}
+
+                    if (isSelfSigned || isTrustAnchor) {
+                        final X509Certificate[] chain = chainCollector.toArray(new X509Certificate[0]);
+                        chainCollector.clear();
+                        finalTm.checkServerTrusted(chain, "RSA");
+                        Log.d(TAG, "SSLCertificateVerifier: chain validated successfully (" + chain.length + " certs)");
+                    }
+                    return true;
+                } catch (Exception e) {
+                    chainCollector.clear();
+                    Log.w(TAG, "TURN TLS certificate verification failed", e);
+                    return false;
+                }
+            };
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build SSLCertificateVerifier, TURN TLS will fail", e);
+            return derCert -> false;
+        }
+    }
+
+    /**
+     * Verifies that a leaf certificate belongs to a KVS TURN server by checking
+     * its SANs for a matching domain pattern. Supports both commercial and
+     * GovCloud FIPS endpoints across legacy and dual-stack domains.
+     *
+     * Expected SAN patterns:
+     *   *.t-{id}.kinesisvideo.{region}.amazonaws.com      (commercial)
+     *   *.t-{id}.kinesisvideo.{region}.api.aws            (commercial dual-stack)
+     *   *.t-{id}.kinesisvideo-fips.{region}.amazonaws.com (GovCloud FIPS)
+     *   *.t-{id}.kinesisvideo-fips.{region}.api.aws       (GovCloud FIPS dual-stack)
+     */
+    private boolean verifyKvsTurnHostname(final X509Certificate cert) {
+        try {
+            if (cert.getSubjectAlternativeNames() == null) return false;
+            for (final List<?> san : cert.getSubjectAlternativeNames()) {
+                if (san.size() >= 2 && Integer.valueOf(2).equals(san.get(0))) {
+                    final String dnsName = san.get(1).toString().toLowerCase();
+                    if (dnsName.contains(".kinesisvideo") &&
+                            (dnsName.endsWith(".amazonaws.com") || dnsName.endsWith(".api.aws"))) {
+                        Log.d(TAG, "SSLCertificateVerifier: hostname verified via SAN: " + dnsName);
+                        return true;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "SSLCertificateVerifier: error reading SANs", e);
+        }
+        return false;
     }
 }
