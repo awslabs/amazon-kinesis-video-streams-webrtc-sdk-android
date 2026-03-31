@@ -126,110 +126,130 @@
 
         </LinearLayout>
 
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="20dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ICE Candidate Filtering"
-            android:textStyle="bold"
-            tools:ignore="HardcodedText" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="8dp">
 
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="host"
-                android:textSize="14sp"
+                android:text="ICE Candidate Filtering"
+                android:textStyle="bold"
                 tools:ignore="HardcodedText" />
 
-            <Spinner
-                android:id="@+id/candidate_host_spinner"
-                android:layout_width="0dp"
+            <Switch
+                android:id="@+id/show_candidate_filtering"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="2" />
+                android:layout_marginStart="16dp" />
 
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/candidate_filtering_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="4dp">
+            android:orientation="vertical"
+            android:visibility="gone">
 
-            <TextView
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="srflx"
-                android:textSize="14sp"
-                tools:ignore="HardcodedText" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="4dp">
 
-            <Spinner
-                android:id="@+id/candidate_srflx_spinner"
-                android:layout_width="0dp"
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="host"
+                    android:textSize="14sp"
+                    tools:ignore="HardcodedText" />
+
+                <Spinner
+                    android:id="@+id/candidate_host_spinner"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="2" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="4dp">
 
-        </LinearLayout>
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="srflx"
+                    android:textSize="14sp"
+                    tools:ignore="HardcodedText" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="4dp">
+                <Spinner
+                    android:id="@+id/candidate_srflx_spinner"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2" />
 
-            <TextView
-                android:layout_width="0dp"
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="relay"
-                android:textSize="14sp"
-                tools:ignore="HardcodedText" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="4dp">
 
-            <Spinner
-                android:id="@+id/candidate_relay_spinner"
-                android:layout_width="0dp"
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="relay"
+                    android:textSize="14sp"
+                    tools:ignore="HardcodedText" />
+
+                <Spinner
+                    android:id="@+id/candidate_relay_spinner"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="2" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="4dp">
 
-        </LinearLayout>
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="prflx"
+                    android:textSize="14sp"
+                    tools:ignore="HardcodedText" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="4dp">
+                <Spinner
+                    android:id="@+id/candidate_prflx_spinner"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="prflx"
-                android:textSize="14sp"
-                tools:ignore="HardcodedText" />
-
-            <Spinner
-                android:id="@+id/candidate_prflx_spinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2" />
+            </LinearLayout>
 
         </LinearLayout>
 

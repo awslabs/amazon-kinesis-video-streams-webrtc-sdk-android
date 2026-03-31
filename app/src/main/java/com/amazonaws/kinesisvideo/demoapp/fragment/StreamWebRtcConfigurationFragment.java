@@ -112,6 +112,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private Spinner mCameras;
     private Switch mUseDualStackEndpoints;
     private Switch mForceTurn;
+    private View mCandidateFilteringContainer;
     private Spinner mCandidateHost;
     private Spinner mCandidateSrflx;
     private Spinner mCandidateRelay;
@@ -161,6 +162,11 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mForceTurn = view.findViewById(R.id.force_turn);
         mIngestMedia = view.findViewById(R.id.ingest_media);
         setRegionFromCognito();
+
+        mCandidateFilteringContainer = view.findViewById(R.id.candidate_filtering_container);
+        final Switch showCandidateFiltering = view.findViewById(R.id.show_candidate_filtering);
+        showCandidateFiltering.setOnCheckedChangeListener((buttonView, isChecked) ->
+                mCandidateFilteringContainer.setVisibility(isChecked ? View.VISIBLE : View.GONE));
 
         final ArrayAdapter<String> candidateModeAdapter = new ArrayAdapter<>(
                 getActivity(), android.R.layout.simple_spinner_dropdown_item, CANDIDATE_MODES);
